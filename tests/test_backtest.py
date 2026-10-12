@@ -96,3 +96,31 @@ def test_close_timing_reproduces_the_leaky_version_for_comparison():
     closes = pd.to_datetime(df.set_index("market_id").loc[leaky["market_id"], "closed_ts"]
                             - 7 * DAY, unit="s").dt.to_period("M").dt.start_time
     assert len(leaky) > 100 and (months.to_numpy() == closes.to_numpy()).all()
+
+
+def test_training_waits_for_late_resolutions_even_when_the_scheduled_end_has_passed():
+    # Markets often settle after their scheduled end; until then the outcome is unknown.
+    df = timed_markets(a=0.0, b=1.4, n=6_000, seed=8)
+    df["end_ts"] = df["closed_ts"] - 60 * DAY
+    df["price_sched_7d"] = df["price_sched_7d"].where(df["closed_ts"] > df["end_ts"] - 7 * DAY)
+    cutoff = START + 15 * 30 * DAY
+    flipped = df.copy()
+    later = flipped["closed_ts"] >= cutoff
+    flipped.loc[later, "outcome"] = 1 - flipped.loc[later, "outcome"]
+
+    def decisions_before_cutoff(frame):
+        trades = walk_forward(frame, cost=0.01, min_train=500)
+        return trades[trades["month_start"] <= cutoff].set_index("market_id")["side"].sort_index()
+
+    original = decisions_before_cutoff(df)
+    assert len(original) > 100
+    pd.testing.assert_series_equal(original, decisions_before_cutoff(flipped))
+
+
+def test_a_market_already_closed_at_decision_time_is_never_traded():
+    df = timed_markets(a=0.0, b=1.4, n=6_000, seed=9)
+    closed_early = df.index[-50:]
+    df.loc[closed_early, "end_ts"] = df.loc[closed_early, "closed_ts"] + 30 * DAY
+    df.loc[closed_early, "price_sched_7d"] = 0.05  # a stray price where none should exist
+    trades = walk_forward(df, cost=0.01, min_train=500)
+    assert not set(trades["market_id"]) & set(df.loc[closed_early, "market_id"])

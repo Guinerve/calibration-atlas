@@ -28,7 +28,7 @@ BACKTEST = {"cost": 0.01, "min_train": 500}
 # A category gets its own slope only with enough markets, and enough events for
 # event clustered errors to mean something.
 CATEGORY_RULES = {"min_markets": 100, "min_events": 10}
-PRIOR_CHECK_SCALES = (0.25, 2.0)  # tau prior scales compared against the default 0.5
+PRIOR_CHECK_SCALES = (0.125, 0.5, 2.0)  # tau prior scales: 4x tighter, the default, 4x looser
 TIMING_LABELS = {"scheduled": "Timed from the scheduled end (honest)",
                  "close": "Timed from the actual close (peeks at the future)"}
 
@@ -162,14 +162,15 @@ def _fmt(x, digits=3):
 
 
 def _pool(categories: pd.DataFrame):
-    """Partially pooled slopes, plus the largest shift any of them makes when the prior
-    on the spread between categories is made four times tighter or looser."""
+    """Partially pooled slopes, plus each category's pooled slope under a prior on the
+    spread between categories that is four times tighter and four times looser."""
     fitted = categories.dropna(subset=["b"])
     args = (fitted["category"], fitted["b"].to_numpy(), (fitted["b_high"] - fitted["b"]).to_numpy() / Z95)
     pooled = pool_slopes(*args)
-    shifts = [(pool_slopes(*args, tau_sd=scale).table["b_pooled"] - pooled.table["b_pooled"]).abs().max()
-              for scale in PRIOR_CHECK_SCALES]
-    return pooled, float(max(shifts))
+    sensitivity = pd.DataFrame({"category": fitted["category"].to_numpy()} | {
+        scale: pool_slopes(*args, tau_sd=scale).table["b_pooled"].to_numpy()
+        for scale in PRIOR_CHECK_SCALES})
+    return pooled, sensitivity
 
 
 def _sample_name(summary: dict) -> str:
@@ -283,10 +284,16 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         (f"- Shared mean slope: **{mu[0]:.2f}** ({mu[1]:.2f} to {mu[2]:.2f}). Spread between "
          f"categories (tau): median {tau[0]:.2f} ({tau[1]:.2f} to {tau[2]:.2f}). A category not "
          f"seen here could plausibly have a slope from {new_cat[1]:.2f} to {new_cat[2]:.2f}."),
-        (f"- Prior check: making the prior on tau four times tighter or looser moves no pooled "
-         f"slope by more than {prior_check:.2f}."),
         ("- Model: b_hat ~ Normal(b, se), b ~ Normal(mu, tau), mu ~ Normal(1, 1), "
          "tau ~ HalfNormal(0.5), solved exactly on a grid over tau (see `pooling.py`)."),
+        "",
+        ("**Prior check.** With only a handful of categories, the prior on tau matters. Pooled "
+         "slopes under a prior four times tighter and four times looser than the default:"),
+        "",
+        "| Category | tau prior scale 0.125 (4x tighter) | 0.5 (default) | 2.0 (4x looser) |",
+        "|---|--:|--:|--:|",
+        *[f"| {row[0]} | " + " | ".join(f"{v:.2f}" for v in row[1:]) + " |"
+          for row in prior_check.itertuples(index=False)],
     ]
     lines += ["", "## Walk forward backtest", ""]
     honest = bt["scheduled"]

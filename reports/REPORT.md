@@ -41,8 +41,17 @@ Recalibration slope 7 days before the scheduled end (markets still open then), t
 | other | 86 | 4 | too few events | – |
 
 - Shared mean slope: **1.03** (0.78 to 1.35). Spread between categories (tau): median 0.20 (0.02 to 0.63). A category not seen here could plausibly have a slope from 0.40 to 1.73.
-- Prior check: making the prior on tau four times tighter or looser moves no pooled slope by more than 0.06.
 - Model: b_hat ~ Normal(b, se), b ~ Normal(mu, tau), mu ~ Normal(1, 1), tau ~ HalfNormal(0.5), solved exactly on a grid over tau (see `pooling.py`).
+
+**Prior check.** With only a handful of categories, the prior on tau matters. Pooled slopes under a prior four times tighter and four times looser than the default:
+
+| Category | tau prior scale 0.125 (4x tighter) | 0.5 (default) | 2.0 (4x looser) |
+|---|--:|--:|--:|
+| politics | 0.91 | 0.90 | 0.90 |
+| sports | 1.02 | 1.04 | 1.04 |
+| crypto | 0.98 | 0.98 | 0.98 |
+| macro | 1.13 | 1.29 | 1.33 |
+| culture | 0.96 | 0.94 | 0.94 |
 
 ## Walk forward backtest
 

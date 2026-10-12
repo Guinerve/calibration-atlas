@@ -34,6 +34,7 @@ def test_report_writes_markdown_and_both_chart_themes(tmp_path):
     assert "| 7 days before scheduled end | open then |" in report
     assert set(results["backtest"]) == {"scheduled", "close"}
     assert "partially pooled" in report and "Prior check" in report
+    assert "| Category | tau prior scale 0.125 (4x tighter) | 0.5 (default) | 2.0 (4x looser) |" in report
     assert set(results["pooled"].table["category"]) == {"sports", "politics", "macro"}
     for chart in ["reliability", "category_slopes", "backtest"]:
         for theme in ["light", "dark"]:

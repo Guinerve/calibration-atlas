@@ -56,3 +56,17 @@ def test_pooled_estimates_are_closer_to_the_truth_than_estimates_alone():
         errors_alone.append(np.mean((estimate - truth) ** 2))
         errors_pooled.append(np.mean((table["b_pooled"] - truth) ** 2))
     assert np.mean(errors_pooled) < 0.7 * np.mean(errors_alone)
+
+
+def test_closed_form_tau_posterior_matches_a_direct_multivariate_normal():
+    from scipy import stats
+
+    from calibration_atlas.pooling import TAU_GRID, _tau_posterior
+
+    y, s = np.array([0.9, 1.7, 1.0, 1.05]), np.array([0.04, 0.23, 0.1, 0.13])
+    direct = np.array([
+        stats.multivariate_normal.logpdf(y, np.ones(4), np.diag(s**2 + t**2) + 1.0)
+        + stats.halfnorm.logpdf(t, scale=0.5) for t in TAU_GRID])
+    direct = np.exp(direct - direct.max())
+    direct /= direct.sum()
+    assert np.abs(_tau_posterior(y, s, 1.0, 1.0, 0.5) - direct).max() < 1e-12

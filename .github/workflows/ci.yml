@@ -5,13 +5,19 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - run: uv sync
-      - run: uvx ruff check src tests
+      - run: uvx ruff@0.17.0 check src tests
       - name: Tests (no network access needed)
         run: uv run pytest -v

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -23,7 +24,11 @@ def cmd_collect(args: argparse.Namespace) -> int:
 def cmd_report(args: argparse.Namespace) -> int:
     study_path = args.data / "study.csv"
     study = pd.read_csv(study_path, dtype={"market_id": str, "event_id": str})
-    downloaded = datetime.fromtimestamp(study_path.stat().st_mtime, UTC)
+    meta_path = args.data / "collection.json"
+    if meta_path.exists():
+        downloaded = datetime.fromisoformat(json.loads(meta_path.read_text())["collected"])
+    else:  # older collections: the file time is the best guess, and survives only locally
+        downloaded = datetime.fromtimestamp(study_path.stat().st_mtime, UTC)
     from .explorer import export_markets
     from .report import build_report
 

@@ -38,7 +38,11 @@ def walk_forward(df: pd.DataFrame, cost: float = 0.01, min_train: int = 500,
                  threshold: float = 0.0, timing: str = "scheduled") -> pd.DataFrame:
     price_col, anchor = TIMINGS[timing]
     data = df.dropna(subset=[price_col]).copy()
-    data["month_start"] = _month_start(data[anchor] - DECISION_BEFORE_END)
+    decision_ts = data[anchor] - DECISION_BEFORE_END
+    if timing == "scheduled":
+        data = data[data["closed_ts"] > decision_ts]  # still open, so actually tradable
+        decision_ts = decision_ts[data.index]
+    data["month_start"] = _month_start(decision_ts)
 
     trades = []
     for month in sorted(data["month_start"].unique()):

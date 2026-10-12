@@ -96,8 +96,8 @@
   </header>
 
   <div class="controls" role="group" aria-label="Filters">
-    <div class="control"><span>Price taken</span>
-      <div class="segmented" id="horizon">
+    <div class="control"><span id="horizon-label">Price taken</span>
+      <div class="segmented" id="horizon" role="group" aria-labelledby="horizon-label">
         <button data-value="30d">30 days before close</button>
         <button data-value="7d">7 days</button>
         <button data-value="1d">1 day</button>
@@ -111,8 +111,8 @@
         <option value="1000000">$1M</option><option value="10000000">$10M</option>
       </select>
     </label>
-    <div class="control"><span>Early closes</span>
-      <div class="segmented" id="early">
+    <div class="control"><span id="early-label">Early closes</span>
+      <div class="segmented" id="early" role="group" aria-labelledby="early-label">
         <button data-value="include" aria-pressed="true">Include</button>
         <button data-value="exclude">Exclude</button>
       </div>
@@ -134,7 +134,7 @@
       <span><i class="swatch" style="border-color: var(--series-2)"></i>Fitted recalibration curve</span>
       <span><i class="swatch dashed" style="border-color: var(--muted)"></i>Perfect calibration</span>
     </div>
-    <div class="chart" id="chart"><div class="tooltip" id="tooltip" role="status"></div></div>
+    <div class="chart" id="chart"><div class="tooltip" id="tooltip" aria-hidden="true"></div></div>
     <p class="warning" id="warning" hidden></p>
     <details>
       <summary>Show as a table</summary>
@@ -193,7 +193,7 @@ function drawChart(bins, fit) {
   W = Math.max(320, Math.min(640, chart.clientWidth || 640));
   H = Math.round(W * 0.69);
   chart.querySelector("svg")?.remove();
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img",
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "group",
     "aria-label": "Reliability diagram: how often Yes happened in each price bin" });
   chart.prepend(svg);
   for (let t = 0; t <= 10; t += 2) {
@@ -243,13 +243,16 @@ function render() {
   document.getElementById("t-yes").textContent = n ? pct(yes / n) : "–";
   document.getElementById("t-brier").textContent = n ? fmt(brier(price, outcome), 3) : "–";
 
-  let fit = null;
+  let fit = null, why = "too few markets to fit";
   if (n >= 30 && yes > 0 && yes < n && events > 2) {
     fit = fitRecalibration(price, outcome, event);
-    if (!Number.isFinite(fit.b) || !Number.isFinite(fit.seB)) fit = null;
+    if (!fit.converged || !Number.isFinite(fit.seB)) {
+      fit = null;
+      why = "no stable fit for this subset (too few markets, or near perfect separation)";
+    }
   }
   document.getElementById("t-slope").textContent = fit ? `${fmt(fit.b, 2)} ± ${fmt(fit.seB, 2)}` : "–";
-  document.getElementById("t-slope-sub").textContent = !fit ? "too few markets to fit"
+  document.getElementById("t-slope-sub").textContent = !fit ? why
     : fit.b - 1.96 * fit.seB > 1 ? "prices too timid at the extremes"
     : fit.b + 1.96 * fit.seB < 1 ? "prices too confident at the extremes"
     : "consistent with calibrated (b = 1)";

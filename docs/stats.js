@@ -44,7 +44,7 @@ const mul2 = (m, n) => [
 export function fitRecalibration(price, outcome, cluster) {
   const n = price.length;
   const x = price.map(logit);
-  let a = 0, b = 1, hess = null;
+  let a = 0, b = 1, hess = null, converged = false;
   for (let iter = 0; iter < 50; iter++) {
     let g0 = 0, g1 = 0, h00 = 0, h01 = 0, h11 = 0;
     for (let i = 0; i < n; i++) {
@@ -57,7 +57,12 @@ export function fitRecalibration(price, outcome, cluster) {
     const inv = inv2(hess);
     const da = inv[0][0] * g0 + inv[0][1] * g1, db = inv[1][0] * g0 + inv[1][1] * g1;
     a += da; b += db;
-    if (Math.abs(da) + Math.abs(db) < 1e-10) break;
+    if (!Number.isFinite(a) || !Number.isFinite(b)) break;
+    if (Math.abs(da) + Math.abs(db) < 1e-10) { converged = true; break; }
+  }
+  // Separated outcomes have no finite maximum: the slope runs away instead of settling.
+  if (!converged || Math.abs(b) > 10) {
+    return { a, b, n, events: new Set(cluster).size, seA: NaN, seB: NaN, converged: false };
   }
   const scores = new Map();
   for (let i = 0; i < n; i++) {
@@ -73,7 +78,7 @@ export function fitRecalibration(price, outcome, cluster) {
   const bread = inv2(hess);
   const cov = mul2(mul2(bread, [[m00, m01], [m01, m11]]), bread);
   return {
-    a, b, n, events: g,
+    a, b, n, events: g, converged: true,
     seA: Math.sqrt(correction * cov[0][0]), seB: Math.sqrt(correction * cov[1][1]),
     predict: (p) => sigmoid(a + b * logit(p)),
   };

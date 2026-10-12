@@ -49,3 +49,13 @@ def test_failed_markets_are_recorded_not_silently_dropped(tmp_path):
     errors = pd.read_csv(tmp_path / "errors.csv")
     assert list(errors["market_id"]) == ["c"]
     assert "HTTP 500" in errors["error"].iloc[0]
+
+
+def test_collection_date_is_recorded_rather_than_read_from_file_times(tmp_path):
+    import json
+    from datetime import UTC, datetime
+
+    collect(StubFetcher(EVENTS, HISTORIES), max_events=10, out_dir=tmp_path, workers=1)
+    meta = json.loads((tmp_path / "collection.json").read_text())
+    assert meta["collected"] == datetime.now(UTC).date().isoformat()
+    assert meta["events"] == 1 and meta["markets"] == 3

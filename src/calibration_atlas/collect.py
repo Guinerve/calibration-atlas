@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -39,4 +41,7 @@ def collect(fetcher, max_events: int, out_dir: Path, workers: int = 4) -> dict[s
 
     pd.DataFrame(rows).to_csv(out_dir / "study.csv", index=False)
     pd.DataFrame(errors, columns=["market_id", "error"]).to_csv(out_dir / "errors.csv", index=False)
-    return {"events": len(events), "markets": len(markets), "rows": len(rows), "errors": len(errors)}
+    summary = {"events": len(events), "markets": len(markets), "rows": len(rows), "errors": len(errors)}
+    meta = {"collected": datetime.now(UTC).date().isoformat()} | summary
+    (out_dir / "collection.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    return summary

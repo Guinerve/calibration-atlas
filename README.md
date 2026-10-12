@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Guinerve/calibration-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Guinerve/calibration-atlas/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-2a78d6)
-![Tests](https://img.shields.io/badge/tests-68%20passing-2a78d6)
+![Tests](https://img.shields.io/badge/tests-73%20passing-2a78d6)
 ![Data](https://img.shields.io/badge/data-read%20only%20public%20API-52514e)
 
 **[Open the interactive explorer →](https://guinerve.github.io/calibration-atlas/)**
@@ -67,7 +67,7 @@ Each category's slope is first fitted alone. Five categories is a small family, 
 
 * Politics, with 312 events and a tight estimate, barely moves (0.89 → 0.90) and stays below 1.
 * Macro moves the most (1.66 → 1.29), and its credible interval now reaches 1.
-* Making the prior on the spread between categories four times tighter or looser moves no pooled slope by more than 0.06.
+* The prior on the spread between categories matters for macro: four times tighter gives 1.13, four times looser 1.33. The other categories move by 0.02 at most. The full table is in the report.
 
 The model works from each category's event clustered estimate and standard error, so the correlation between markets in one event stays accounted for. Because the shared mean has a conjugate prior, the posterior is computed exactly on a grid instead of by MCMC: it runs in under a second and has no sampler to tune (`pooling.py`).
 
@@ -99,16 +99,16 @@ The model works from each category's event clustered estimate and standard error
 
 The tests check the properties that would make the results wrong if they broke:
 
-* **Parameter recovery.** Markets simulated with a known bias (a, b) are fitted, and the true values come back within three standard errors. Prices below 1¢ keep their own logit.
+* **Parameter recovery.** Markets simulated with a known bias (a, b) are fitted, and the true values come back within three standard errors (plus a 0.02 allowance). Prices below 1¢ keep their own logit.
 * **Clustering works.** Duplicating markets inside an event does not shrink the standard errors or the bootstrap interval.
-* **No future information.** Flipping every outcome after a cutoff leaves every earlier trading decision unchanged. Prices are never read past their cutoff, and a market that had already closed at decision time is never traded.
+* **No future information.** Flipping every outcome after a cutoff leaves every earlier trading decision unchanged, including when markets settle weeks after their scheduled end (a test checks that this one fails if training keys on the scheduled end instead of the actual settlement). Prices are never read past their cutoff, and a market that had already closed at decision time is never traded.
 * **The strategy can find an edge, and not invent one.** On simulated biased prices it profits; on calibrated prices it doesn't.
-* **Pooling helps, and is computed exactly.** On simulated families of categories, pooled slopes land closer to the truth than slopes fitted alone, a precise category keeps its estimate, and a real difference survives. The closed form likelihood matches scipy's to 1e−17.
-* **The explorer agrees with the analysis.** The browser's slope, clustered errors, Brier score and bins are checked against the Python versions in CI.
+* **Pooling helps, and is computed exactly.** On simulated families of categories, pooled slopes land closer to the truth than slopes fitted alone, a precise category keeps its estimate, and a real difference survives. A test checks the closed form likelihood against scipy's multivariate normal density.
+* **The explorer agrees with the analysis.** The browser's slope, clustered errors, Brier score and bins are checked against the Python versions in CI, and a subset with no stable fit shows as such rather than as a runaway slope.
 * **The Murphy terms add up** to the Brier score, and calibrated forecasts score near zero reliability.
 * **Data collection.** HTTP tests run on a mock transport: paging, caching, retries on 429 and 5xx, permanent errors raised rather than hidden, and failed downloads recorded in `errors.csv` rather than silently dropped. The real collection had zero failures.
 
-68 tests run on every push in GitHub Actions, with `ruff` for linting.
+73 tests run on every push in GitHub Actions, with `ruff` for linting.
 
 ## Reproduce
 
@@ -139,7 +139,9 @@ uv run pytest
 
 * Prices are Polymarket's published price history, not executable bid and ask quotes. The flat 1¢ cost is an assumption; real fills on thin markets would be worse, which only strengthens the "no edge" result.
 * The sample is the highest volume closed events, so it describes liquid markets, not all of them.
-* **The macro result was found after looking at the data**, in 65 events, and pooling more than halves its distance from 1. Treat it as a hypothesis to test on markets that close after October 2026, not as an established edge.
+* The backtest leans on one month: 395 of its 1,117 trades fall in June 2026.
+* The sample is chosen by lifetime volume, which is only known afterwards. The honest decision time avoids the worst of this, but the selection itself still looks back.
+* **The macro result was found after looking at the data**, in 65 events; pooling more than halves its distance from 1, and the pooled value depends on the prior (1.13 to 1.33). Treat it as a hypothesis to test on markets that close after October 2026, not as an established edge.
 * Categories come from event tags, which are imperfect. Only 43% of markets have a price 30 days before close, because many are younger than that.
 * One venue. Research on read only public data; no trades were placed, and nothing here is trading advice.
 

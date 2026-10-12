@@ -29,6 +29,7 @@ def test_export_is_compact_columns_with_nulls_for_missing_prices(tmp_path):
 
 
 def run_js_stats(price, outcome, cluster):
+    import os
     import shutil
     import subprocess
     from pathlib import Path
@@ -36,6 +37,8 @@ def run_js_stats(price, outcome, cluster):
     import pytest
 
     if shutil.which("node") is None:
+        if os.environ.get("CI"):
+            pytest.fail("node is required in CI so the explorer parity check cannot be skipped")
         pytest.skip("node is not installed")
     script = Path(__file__).parent / "js" / "check_stats.mjs"
     payload = json.dumps({"price": list(map(float, price)), "outcome": list(map(int, outcome)),
@@ -64,3 +67,12 @@ def test_browser_statistics_match_the_python_analysis():
     table = reliability_table(sim["price"].to_numpy(), sim["outcome"].to_numpy(), bins=10)
     assert [b["count"] for b in js["bins"]] == table["count"].tolist()
     assert np.allclose([b["observed"] for b in js["bins"]], table["observed"])
+
+
+def test_browser_fit_reports_failure_instead_of_a_huge_slope_when_outcomes_separate():
+    import numpy as np
+
+    price = np.linspace(0.05, 0.95, 60)
+    outcome = (price > 0.5).astype(int)  # perfectly separated: no finite maximum likelihood
+    js = run_js_stats(price, outcome, np.arange(60) // 3)
+    assert js["fit"]["converged"] is False
