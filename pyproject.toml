@@ -1,0 +1,30 @@
+[project]
+name = "calibration-atlas"
+version = "0.1.0"
+description = "How well do prediction markets forecast? A reproducible calibration study of resolved Polymarket markets."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.13",
+    "statsmodels>=0.14",
+    "matplotlib>=3.9",
+]
+
+[project.scripts]
+calatlas = "calibration_atlas.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/calibration_atlas"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
