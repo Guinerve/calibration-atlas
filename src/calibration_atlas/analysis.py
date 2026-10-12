@@ -42,15 +42,15 @@ def summarise(study: pd.DataFrame, horizon: str = "7d", exclude_early: bool = Fa
 
 
 def by_category(study: pd.DataFrame, horizon: str = "7d", exclude_early: bool = False,
-                min_markets: int = 300) -> pd.DataFrame:
+                min_markets: int = 300, min_events: int = 0) -> pd.DataFrame:
     """Recalibration slope per category, with a 95% interval clustered by event.
-    Categories with fewer than ``min_markets`` markets get no estimate."""
+    Categories with fewer than ``min_markets`` markets or ``min_events`` events get no estimate."""
     df = _sample(study, horizon, exclude_early)
     rows = []
     for category, group in df.groupby("category"):
         row = {"category": category, "markets": len(group), "events": group["event_id"].nunique(),
                "b": math.nan, "b_low": math.nan, "b_high": math.nan}
-        if len(group) >= min_markets:
+        if len(group) >= min_markets and row["events"] >= min_events:
             fit = fit_recalibration(group[f"price_{horizon}"], group["outcome"], group["event_id"])
             row |= {"b": fit.b, "b_low": fit.b - Z95 * fit.se_b, "b_high": fit.b + Z95 * fit.se_b}
         rows.append(row)

@@ -33,6 +33,8 @@ def test_report_writes_markdown_and_both_chart_themes(tmp_path):
     assert "Timed from the actual close" in report  # the leaky comparison is shown
     assert "| 7 days before scheduled end | open then |" in report
     assert set(results["backtest"]) == {"scheduled", "close"}
+    assert "partially pooled" in report and "Prior check" in report
+    assert set(results["pooled"].table["category"]) == {"sports", "politics", "macro"}
     for chart in ["reliability", "category_slopes", "backtest"]:
         for theme in ["light", "dark"]:
             assert (tmp_path / "figures" / f"{chart}-{theme}.png").stat().st_size > 10_000

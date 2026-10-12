@@ -1,9 +1,10 @@
 [project]
 name = "calibration-atlas"
-version = "0.1.0"
+version = "1.0.0"
 description = "How well do prediction markets forecast? A reproducible calibration study of resolved Polymarket markets."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
 dependencies = [
     "httpx>=0.27",
     "numpy>=1.26",
@@ -28,3 +29,7 @@ packages = ["src/calibration_atlas"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[project.urls]
+Repository = "https://github.com/Guinerve/calibration-atlas"
+Explorer = "https://guinerve.github.io/calibration-atlas/"

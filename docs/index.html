@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calibration Atlas Explorer</title>
+<meta name="description" content="Explore how well 11,881 resolved Polymarket markets were calibrated, by horizon, category and volume.">
+<style>
+  :root {
+    --surface: #fcfcfb; --card: #ffffff; --text: #0b0b0b; --muted: #52514e; --grid: #e6e5e1;
+    --line: #d9d8d3; --series-1: #2a78d6; --series-2: #eb6834; --accent-bg: #eaf2fc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --surface: #1a1a19; --card: #222221; --text: #f0efec; --muted: #c3c2b7; --grid: #3a3a37;
+      --line: #44443f; --series-1: #3987e5; --series-2: #d95926; --accent-bg: #1f2c3d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --surface: #1a1a19; --card: #222221; --text: #f0efec; --muted: #c3c2b7; --grid: #3a3a37;
+    --line: #44443f; --series-1: #3987e5; --series-2: #d95926; --accent-bg: #1f2c3d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 48px; }
+  header h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); }
+  header a, footer a { color: var(--series-1); }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 24px 0 16px; align-items: end; }
+  .control { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
+  .control > span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .segmented button {
+    font: inherit; font-size: 14px; padding: 6px 12px; border: 0; background: var(--card);
+    color: var(--text); cursor: pointer; border-right: 1px solid var(--line);
+  }
+  .segmented button:last-child { border-right: 0; }
+  .segmented button[aria-pressed="true"] { background: var(--accent-bg); color: var(--series-1); font-weight: 600; }
+  select {
+    font: inherit; font-size: 14px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--text);
+  }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .tile .label { font-size: 12px; color: var(--muted); }
+  .tile .value { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile .sub { font-size: 12px; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 2px; }
+  .card .hint { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; margin: 4px 0 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 18px; height: 0; border-top: 2px solid; display: inline-block; }
+  .swatch.dashed { border-top-style: dashed; }
+  .chart { position: relative; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--card); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    opacity: 0; transition: opacity 0.1s; white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  .warning { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--series-1); font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  .reading { margin-top: 16px; color: var(--muted); font-size: 14px; }
+  footer { margin-top: 32px; font-size: 13px; color: var(--muted); }
+  @media (max-width: 560px) {
+    header h1 { font-size: 23px; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; }
+    .controls > .control:first-child, .controls > .control:last-child { grid-column: 1 / -1; }
+    #horizon { display: grid; grid-template-columns: 1fr 1fr; }
+    #horizon button:nth-child(2n) { border-right: 0; }
+    #horizon button:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .segmented button { padding: 7px 8px; font-size: 13px; }
+    #early { display: grid; grid-template-columns: 1fr 1fr; }
+    select { width: 100%; }
+    .tiles { grid-template-columns: 1fr 1fr; }
+    .tile .value { font-size: 20px; }
+    .card { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Calibration Atlas</h1>
+    <p>Do prediction market prices mean what they say? Explore <span id="total">11,881</span> resolved Polymarket markets.
+      <a href="https://github.com/Guinerve/calibration-atlas">Code and method</a></p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Filters">
+    <div class="control"><span>Price taken</span>
+      <div class="segmented" id="horizon">
+        <button data-value="30d">30 days before close</button>
+        <button data-value="7d">7 days</button>
+        <button data-value="1d">1 day</button>
+        <button data-value="sched_7d" aria-pressed="true">7 days before scheduled end</button>
+      </div>
+    </div>
+    <label class="control"><span>Category</span><select id="category"><option value="all">All categories</option></select></label>
+    <label class="control"><span>Minimum volume</span>
+      <select id="volume">
+        <option value="10000">$10k</option><option value="100000">$100k</option>
+        <option value="1000000">$1M</option><option value="10000000">$10M</option>
+      </select>
+    </label>
+    <div class="control"><span>Early closes</span>
+      <div class="segmented" id="early">
+        <button data-value="include" aria-pressed="true">Include</button>
+        <button data-value="exclude">Exclude</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="label">Markets</div><div class="value" id="t-markets">–</div><div class="sub" id="t-events">–</div></div>
+    <div class="tile"><div class="label">Yes happened</div><div class="value" id="t-yes">–</div><div class="sub">of these markets</div></div>
+    <div class="tile"><div class="label">Brier score</div><div class="value" id="t-brier">–</div><div class="sub">lower is better</div></div>
+    <div class="tile"><div class="label">Recalibration slope b</div><div class="value" id="t-slope">–</div><div class="sub" id="t-slope-sub">1 means calibrated</div></div>
+  </div>
+
+  <section class="card">
+    <h2>How often Yes happened, against the market price</h2>
+    <p class="hint">Markets grouped into ten price bins. Hover a point for its numbers.</p>
+    <div class="legend" aria-hidden="true">
+      <span><i class="swatch" style="border-color: var(--series-1)"></i>Observed, per price bin</span>
+      <span><i class="swatch" style="border-color: var(--series-2)"></i>Fitted recalibration curve</span>
+      <span><i class="swatch dashed" style="border-color: var(--muted)"></i>Perfect calibration</span>
+    </div>
+    <div class="chart" id="chart"><div class="tooltip" id="tooltip" role="status"></div></div>
+    <p class="warning" id="warning" hidden></p>
+    <details>
+      <summary>Show as a table</summary>
+      <table><thead><tr><th>Price bin</th><th>Markets</th><th>Average price</th><th>Yes happened</th></tr></thead><tbody id="rows"></tbody></table>
+    </details>
+  </section>
+
+  <p class="reading">
+    <strong>Reading it.</strong> Points above the dashed line mean Yes happened more often than the price said.
+    The slope b comes from logit(P(Yes)) = a + b·logit(price): above 1, prices are too timid at the extremes
+    (favourites underpriced, long shots overpriced); below 1, too confident. Its standard error is clustered by
+    event, because markets in one event move together. "Early closes" are markets that closed over a day before
+    their scheduled end, usually because the event already happened; prices measured from the actual close then
+    peek at the answer, which is why the default view measures 7 days before the scheduled end.
+  </p>
+
+  <footer><span id="note"></span>. Research on read only public data; not trading advice.</footer>
+</main>
+
+<script type="module">
+import { brier, fitRecalibration, reliabilityBins } from "./stats.js";
+
+const state = { horizon: "sched_7d", category: "all", volume: 10000, early: "include" };
+const fmt = (x, d = 0) => x.toLocaleString("en", { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (x) => `${fmt(100 * x, x < 0.1 ? 1 : 0)}%`;
+const cents = (x) => x < 0.01 ? `${fmt(100 * x, 2)}¢` : `${fmt(100 * x, 0)}¢`;
+let data;
+
+function select() {
+  const prices = data.price[state.horizon];
+  const price = [], outcome = [], event = [];
+  for (let i = 0; i < prices.length; i++) {
+    if (prices[i] === null || data.volume[i] < state.volume) continue;
+    if (state.category !== "all" && data.categories[data.category[i]] !== state.category) continue;
+    if (state.early === "exclude" && data.early[i]) continue;
+    price.push(prices[i]); outcome.push(data.outcome[i]); event.push(data.event[i]);
+  }
+  return { price, outcome, event };
+}
+
+// Chart geometry: the drawing space follows the container width, so text stays legible on phones.
+let W = 640, H = 440;
+const M = { top: 12, right: 16, bottom: 48, left: 56 };
+const x = (p) => M.left + p * (W - M.left - M.right);
+const y = (p) => H - M.bottom - p * (H - M.top - M.bottom);
+const svgNS = "http://www.w3.org/2000/svg";
+const el = (name, attrs, parent) => {
+  const node = document.createElementNS(svgNS, name);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  parent?.appendChild(node);
+  return node;
+};
+
+function drawChart(bins, fit) {
+  const chart = document.getElementById("chart");
+  W = Math.max(320, Math.min(640, chart.clientWidth || 640));
+  H = Math.round(W * 0.69);
+  chart.querySelector("svg")?.remove();
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": "Reliability diagram: how often Yes happened in each price bin" });
+  chart.prepend(svg);
+  for (let t = 0; t <= 10; t += 2) {
+    const v = t / 10;
+    el("line", { x1: x(0), x2: x(1), y1: y(v), y2: y(v), stroke: "var(--grid)" }, svg);
+    el("line", { x1: x(v), x2: x(v), y1: y(0), y2: y(1), stroke: "var(--grid)" }, svg);
+    el("text", { x: x(v), y: y(0) + 18, "text-anchor": "middle", fill: "var(--muted)", "font-size": 12 }, svg).textContent = `${t * 10}¢`;
+    el("text", { x: x(0) - 8, y: y(v) + 4, "text-anchor": "end", fill: "var(--muted)", "font-size": 12 }, svg).textContent = `${t * 10}%`;
+  }
+  el("text", { x: (x(0) + x(1)) / 2, y: H - 8, "text-anchor": "middle", fill: "var(--muted)", "font-size": 13 }, svg).textContent = "Market price of Yes";
+  el("text", { x: 14, y: (y(0) + y(1)) / 2, "text-anchor": "middle", fill: "var(--muted)", "font-size": 13,
+    transform: `rotate(-90 14 ${(y(0) + y(1)) / 2})` }, svg).textContent = "How often Yes happened";
+  el("line", { x1: x(0), y1: y(0), x2: x(1), y2: y(1), stroke: "var(--muted)", "stroke-width": 1.5, "stroke-dasharray": "5 4" }, svg);
+
+  if (fit) {
+    const pts = Array.from({ length: 101 }, (_, i) => { const p = 0.0005 + i * 0.999 / 100; return `${x(p)},${y(fit.predict(p))}`; });
+    el("polyline", { points: pts.join(" "), fill: "none", stroke: "var(--series-2)", "stroke-width": 2 }, svg);
+  }
+  el("polyline", { points: bins.map((b) => `${x(b.meanPrice)},${y(b.observed)}`).join(" "), fill: "none",
+    stroke: "var(--series-1)", "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+
+  const tooltip = document.getElementById("tooltip");
+  for (const b of bins) {
+    const cx = x(b.meanPrice), cy = y(b.observed);
+    el("circle", { cx, cy, r: 5, fill: "var(--series-1)", stroke: "var(--card)", "stroke-width": 2 }, svg);
+    const hit = el("circle", { cx, cy, r: 16, fill: "transparent", tabindex: 0,
+      "aria-label": `${cents(b.low)} to ${cents(b.high)}: ${b.count} markets, Yes ${pct(b.observed)}` }, svg);
+    const show = () => {
+      tooltip.innerHTML = `<strong>Price ${cents(b.low)} to ${cents(b.high)}</strong><br>${fmt(b.count)} markets<br>Average price ${cents(b.meanPrice)}<br>Yes happened ${pct(b.observed)}`;
+      const box = chart.getBoundingClientRect(), scale = box.width / W;
+      const left = Math.min(cx * scale + 12, box.width - 190);
+      tooltip.style.left = `${Math.max(left, 0)}px`;
+      tooltip.style.top = `${Math.max(cy * scale - 70, 0)}px`;
+      tooltip.style.opacity = 1;
+    };
+    const hide = () => { tooltip.style.opacity = 0; };
+    hit.addEventListener("mouseenter", show); hit.addEventListener("focus", show);
+    hit.addEventListener("mouseleave", hide); hit.addEventListener("blur", hide);
+  }
+}
+
+function render() {
+  const { price, outcome, event } = select();
+  const n = price.length, events = new Set(event).size, yes = outcome.reduce((s, o) => s + o, 0);
+  document.getElementById("t-markets").textContent = fmt(n);
+  document.getElementById("t-events").textContent = `in ${fmt(events)} events`;
+  document.getElementById("t-yes").textContent = n ? pct(yes / n) : "–";
+  document.getElementById("t-brier").textContent = n ? fmt(brier(price, outcome), 3) : "–";
+
+  let fit = null;
+  if (n >= 30 && yes > 0 && yes < n && events > 2) {
+    fit = fitRecalibration(price, outcome, event);
+    if (!Number.isFinite(fit.b) || !Number.isFinite(fit.seB)) fit = null;
+  }
+  document.getElementById("t-slope").textContent = fit ? `${fmt(fit.b, 2)} ± ${fmt(fit.seB, 2)}` : "–";
+  document.getElementById("t-slope-sub").textContent = !fit ? "too few markets to fit"
+    : fit.b - 1.96 * fit.seB > 1 ? "prices too timid at the extremes"
+    : fit.b + 1.96 * fit.seB < 1 ? "prices too confident at the extremes"
+    : "consistent with calibrated (b = 1)";
+
+  const bins = n ? reliabilityBins(price, outcome, 10) : [];
+  drawChart(bins, fit);
+  const warning = document.getElementById("warning");
+  warning.hidden = !(n < 300 || events < 30);
+  warning.textContent = n === 0 ? "No markets match these filters."
+    : `Only ${fmt(n)} markets in ${fmt(events)} events: treat the slope and sparse bins with caution.`;
+  document.getElementById("rows").innerHTML = bins.map((b) =>
+    `<tr><td>${cents(b.low)} to ${cents(b.high)}</td><td>${fmt(b.count)}</td><td>${cents(b.meanPrice)}</td><td>${pct(b.observed)}</td></tr>`).join("");
+}
+
+function segmented(id, key) {
+  const group = document.getElementById(id);
+  group.addEventListener("click", (e) => {
+    const button = e.target.closest("button");
+    if (!button) return;
+    for (const b of group.querySelectorAll("button")) b.setAttribute("aria-pressed", b === button);
+    state[key] = button.dataset.value;
+    render();
+  });
+  for (const b of group.querySelectorAll("button")) b.setAttribute("aria-pressed", b.dataset.value === state[key]);
+}
+
+data = await (await fetch("data/markets.json")).json();
+document.getElementById("total").textContent = fmt(data.outcome.length);
+document.getElementById("note").textContent = data.note;
+const categorySelect = document.getElementById("category");
+for (const c of data.categories) categorySelect.add(new Option(c[0].toUpperCase() + c.slice(1), c));
+categorySelect.addEventListener("change", (e) => { state.category = e.target.value; render(); });
+document.getElementById("volume").addEventListener("change", (e) => { state.volume = Number(e.target.value); render(); });
+segmented("horizon", "horizon");
+segmented("early", "early");
+render();
+let resizeTimer;
+window.addEventListener("resize", () => {
+  document.getElementById("tooltip").style.opacity = 0;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(render, 150);
+});
+</script>
+</body>
+</html>

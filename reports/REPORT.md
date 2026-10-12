@@ -27,18 +27,22 @@ Generated 12 October 2026 from Polymarket public data collected 12 October 2026.
 
 ## By category
 
-Recalibration slope 7 days before the scheduled end (markets still open then), the backtest's decision time, with 95% intervals clustered by event.
+Recalibration slope 7 days before the scheduled end (markets still open then), the backtest's decision time. Each category is fitted alone, with 95% intervals clustered by event, and then partially pooled by a Bayesian hierarchical model: the true slopes are treated as draws around a shared mean, so a noisy estimate is pulled toward the others while a precise one keeps its value.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="figures/category_slopes-dark.png"><img src="figures/category_slopes-light.png" alt="Recalibration slope by category" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="figures/category_slopes-dark.png"><img src="figures/category_slopes-light.png" alt="Recalibration slope by category, alone and partially pooled" width="100%"></picture>
 
-| Category | Markets | Events | b | 95% interval |
-|---|--:|--:|--:|---|
-| politics | 3,405 | 312 | 0.89 | 0.81 to 0.98 |
-| sports | 1,328 | 293 | 1.06 | 0.86 to 1.26 |
-| crypto | 814 | 81 | 0.97 | 0.77 to 1.17 |
-| macro | 471 | 65 | 1.66 | 1.21 to 2.10 |
-| culture | 289 | 30 | – | too few markets |
-| other | 86 | 4 | – | too few markets |
+| Category | Markets | Events | b alone (95% CI) | b partially pooled (95% credible) |
+|---|--:|--:|---|---|
+| politics | 3,405 | 312 | 0.89 (0.81 to 0.98) | 0.90 (0.82 to 0.99) |
+| sports | 1,328 | 293 | 1.06 (0.86 to 1.26) | 1.04 (0.87 to 1.23) |
+| crypto | 814 | 81 | 0.97 (0.77 to 1.17) | 0.98 (0.80 to 1.16) |
+| macro | 471 | 65 | 1.66 (1.21 to 2.10) | 1.29 (0.91 to 1.81) |
+| culture | 289 | 30 | 0.91 (0.66 to 1.16) | 0.94 (0.72 to 1.16) |
+| other | 86 | 4 | too few events | – |
+
+- Shared mean slope: **1.03** (0.78 to 1.35). Spread between categories (tau): median 0.20 (0.02 to 0.63). A category not seen here could plausibly have a slope from 0.40 to 1.73.
+- Prior check: making the prior on tau four times tighter or looser moves no pooled slope by more than 0.06.
+- Model: b_hat ~ Normal(b, se), b ~ Normal(mu, tau), mu ~ Normal(1, 1), tau ~ HalfNormal(0.5), solved exactly on a grid over tau (see `pooling.py`).
 
 ## Walk forward backtest
 

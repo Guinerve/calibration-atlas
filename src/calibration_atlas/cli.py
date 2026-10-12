@@ -24,12 +24,14 @@ def cmd_report(args: argparse.Namespace) -> int:
     study_path = args.data / "study.csv"
     study = pd.read_csv(study_path, dtype={"market_id": str, "event_id": str})
     downloaded = datetime.fromtimestamp(study_path.stat().st_mtime, UTC)
+    from .explorer import export_markets
     from .report import build_report
 
-    build_report(study, out_dir=args.out,
-                 data_note=f"Polymarket public data collected {downloaded:%d %B %Y}",
-                 n_boot=args.n_boot)
-    print(f"Wrote {args.out / 'REPORT.md'} and charts in {args.out / 'figures'}")
+    note = f"Polymarket public data collected {downloaded:%d %B %Y}"
+    build_report(study, out_dir=args.out, data_note=note, n_boot=args.n_boot)
+    export_markets(study, args.site / "data" / "markets.json", data_note=note)
+    print(f"Wrote {args.out / 'REPORT.md'}, charts in {args.out / 'figures'}, "
+          f"and explorer data in {args.site / 'data'}")
     return 0
 
 
@@ -46,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("report", help="analyse data/study.csv and write the report and charts")
     p.add_argument("--out", type=Path, default=Path("reports"))
     p.add_argument("--n-boot", type=int, default=1000)
+    p.add_argument("--site", type=Path, default=Path("docs"), help="explorer site folder")
     p.set_defaults(func=cmd_report)
 
     args = parser.parse_args(argv)

@@ -12,10 +12,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from .analysis import by_category, summarise
+from .analysis import Z95, by_category, summarise
 from .backtest import walk_forward
 from .dataset import MIN_VOLUME
 from .metrics import cluster_bootstrap, reliability_table
+from .pooling import pool_slopes
 
 HORIZON_NAMES = {"30d": "30 days before close", "7d": "7 days before close",
                  "1d": "1 day before close"}
@@ -24,6 +25,10 @@ HORIZON_NAMES = {"30d": "30 days before close", "7d": "7 days before close",
 DECISION = "sched_7d"
 TABLE_NAMES = HORIZON_NAMES | {DECISION: "7 days before scheduled end"}
 BACKTEST = {"cost": 0.01, "min_train": 500}
+# A category gets its own slope only with enough markets, and enough events for
+# event clustered errors to mean something.
+CATEGORY_RULES = {"min_markets": 100, "min_events": 10}
+PRIOR_CHECK_SCALES = (0.25, 2.0)  # tau prior scales compared against the default 0.5
 TIMING_LABELS = {"scheduled": "Timed from the scheduled end (honest)",
                  "close": "Timed from the actual close (peeks at the future)"}
 
@@ -85,31 +90,44 @@ def chart_reliability(study, path, theme):
     _save(fig, path)
 
 
-def chart_category_slopes(table, path, theme):
+def chart_category_slopes(table, pooled, path, theme):
     t = THEMES[theme]
-    fig, ax = _figure(theme, figsize=(8, 0.55 * len(table) + 1.4))
+    fig, ax = _figure(theme, figsize=(8, 0.75 * len(table) + 1.6))
     _style(ax, theme)
     ys = list(range(len(table)))[::-1]
     label_box = {"facecolor": t["surface"], "edgecolor": "none", "pad": 1.5}
+    pooled = pooled.set_index("category")
+    alone_color, pooled_color = t["series"]
     for y, row in zip(ys, table.itertuples(index=False), strict=True):
         label = f"{row.category}  ({row.markets:,} markets)"
         ax.text(-0.02, y, label, transform=ax.get_yaxis_transform(), ha="right", va="center",
                 fontsize=9, color=t["text"])
         if math.isnan(row.b):
-            ax.text(1.0, y, "too few markets", ha="center", va="center", fontsize=8, color=t["muted"],
+            ax.text(1.0, y, "too few events", ha="center", va="center", fontsize=8, color=t["muted"],
                     bbox=label_box)
             continue
-        ax.plot([row.b_low, row.b_high], [y, y], color=t["series"][0], linewidth=2,
-                solid_capstyle="round")
-        ax.plot(row.b, y, "o", color=t["series"][0], markersize=7)
-        ax.text(row.b_high + 0.03, y, f"b = {row.b:.2f}", va="center", fontsize=8, color=t["muted"],
-                bbox=label_box)
+        p = pooled.loc[row.category]
+        for offset, (b, low, high, color) in zip(
+                (0.14, -0.14), [(row.b, row.b_low, row.b_high, alone_color),
+                                (p.b_pooled, p.low, p.high, pooled_color)], strict=True):
+            ax.plot([low, high], [y + offset, y + offset], color=color, linewidth=2,
+                    solid_capstyle="round")
+            ax.plot(b, y + offset, "o", color=color, markersize=6.5)
+            ax.text(high + 0.03, y + offset, f"{b:.2f}", va="center", fontsize=8,
+                    color=t["muted"], bbox=label_box)
+    ax.plot([], [], color=alone_color, linewidth=2, marker="o", label="Category alone (95% CI)")
+    ax.plot([], [], color=pooled_color, linewidth=2, marker="o",
+            label="Partially pooled (95% credible interval)")
     ax.axvline(1.0, color=t["muted"], linestyle="--", linewidth=1)
-    ax.text(1.0, len(table) - 0.35, "calibrated (b = 1)", ha="center", fontsize=8, color=t["muted"],
+    ax.text(1.0, len(table) - 0.4, "calibrated (b = 1)", ha="center", fontsize=8, color=t["muted"],
             bbox=label_box)
     ax.set_yticks([])
     ax.set_ylim(-0.7, len(table) - 0.1)
     ax.set_xlabel("Recalibration slope b  (above 1: prices too timid at the extremes)")
+    legend = ax.legend(loc="lower left", bbox_to_anchor=(0, 1.0), ncol=2, fontsize=8.5,
+                       frameon=False)
+    for text in legend.get_texts():
+        text.set_color(t["text"])
     _save(fig, path)
 
 
@@ -143,6 +161,17 @@ def _fmt(x, digits=3):
     return "–" if x is None or (isinstance(x, float) and math.isnan(x)) else f"{x:.{digits}f}"
 
 
+def _pool(categories: pd.DataFrame):
+    """Partially pooled slopes, plus the largest shift any of them makes when the prior
+    on the spread between categories is made four times tighter or looser."""
+    fitted = categories.dropna(subset=["b"])
+    args = (fitted["category"], fitted["b"].to_numpy(), (fitted["b_high"] - fitted["b"]).to_numpy() / Z95)
+    pooled = pool_slopes(*args)
+    shifts = [(pool_slopes(*args, tau_sd=scale).table["b_pooled"] - pooled.table["b_pooled"]).abs().max()
+              for scale in PRIOR_CHECK_SCALES]
+    return pooled, float(max(shifts))
+
+
 def _sample_name(summary: dict) -> str:
     if summary["horizon"] == DECISION:
         return "open then"
@@ -170,13 +199,14 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
     summaries = [summarise(study, h, exclude_early=ex, n_boot=n_boot)
                  for h in HORIZON_NAMES for ex in (False, True)]
     summaries.append(summarise(study, DECISION, exclude_early=False, n_boot=n_boot))
-    categories = by_category(study, horizon=DECISION)
+    categories = by_category(study, horizon=DECISION, **CATEGORY_RULES)
+    pooled, prior_check = _pool(categories)
     trades = {timing: walk_forward(study, timing=timing, **BACKTEST) for timing in TIMING_LABELS}
     bt = {timing: _backtest_summary(t, n_boot) for timing, t in trades.items()}
 
     for theme in THEMES:
         chart_reliability(study, out_dir / "figures" / f"reliability-{theme}.png", theme)
-        chart_category_slopes(categories, out_dir / "figures" / f"category_slopes-{theme}.png", theme)
+        chart_category_slopes(categories, pooled.table, out_dir / "figures" / f"category_slopes-{theme}.png", theme)
         chart_backtest(trades, out_dir / "figures" / f"backtest-{theme}.png", theme)
 
     lines = [
@@ -228,16 +258,36 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         "## By category",
         "",
         ("Recalibration slope 7 days before the scheduled end (markets still open then), the "
-         "backtest's decision time, with 95% intervals clustered by event."),
+         "backtest's decision time. Each category is fitted alone, with 95% intervals clustered by "
+         "event, and then partially pooled by a Bayesian hierarchical model: the true slopes are "
+         "treated as draws around a shared mean, so a noisy estimate is pulled toward the others "
+         "while a precise one keeps its value."),
         "",
-        _picture("category_slopes", "Recalibration slope by category"),
+        _picture("category_slopes", "Recalibration slope by category, alone and partially pooled"),
         "",
-        "| Category | Markets | Events | b | 95% interval |",
-        "|---|--:|--:|--:|---|",
+        "| Category | Markets | Events | b alone (95% CI) | b partially pooled (95% credible) |",
+        "|---|--:|--:|---|---|",
     ]
+    by_name = pooled.table.set_index("category")
     for row in categories.itertuples(index=False):
-        interval = "too few markets" if math.isnan(row.b) else f"{row.b_low:.2f} to {row.b_high:.2f}"
-        lines.append(f"| {row.category} | {row.markets:,} | {row.events:,} | {_fmt(row.b, 2)} | {interval} |")
+        if math.isnan(row.b):
+            alone, pooled_cell = "too few events", "–"
+        else:
+            p = by_name.loc[row.category]
+            alone = f"{row.b:.2f} ({row.b_low:.2f} to {row.b_high:.2f})"
+            pooled_cell = f"{p.b_pooled:.2f} ({p.low:.2f} to {p.high:.2f})"
+        lines.append(f"| {row.category} | {row.markets:,} | {row.events:,} | {alone} | {pooled_cell} |")
+    mu, tau, new_cat = pooled.mu, pooled.tau, pooled.new_category
+    lines += [
+        "",
+        (f"- Shared mean slope: **{mu[0]:.2f}** ({mu[1]:.2f} to {mu[2]:.2f}). Spread between "
+         f"categories (tau): median {tau[0]:.2f} ({tau[1]:.2f} to {tau[2]:.2f}). A category not "
+         f"seen here could plausibly have a slope from {new_cat[1]:.2f} to {new_cat[2]:.2f}."),
+        (f"- Prior check: making the prior on tau four times tighter or looser moves no pooled "
+         f"slope by more than {prior_check:.2f}."),
+        ("- Model: b_hat ~ Normal(b, se), b ~ Normal(mu, tau), mu ~ Normal(1, 1), "
+         "tau ~ HalfNormal(0.5), solved exactly on a grid over tau (see `pooling.py`)."),
+    ]
     lines += ["", "## Walk forward backtest", ""]
     honest = bt["scheduled"]
     if honest["trades"]:
@@ -278,4 +328,4 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         "",
     ]
     (out_dir / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")
-    return {"summaries": summaries, "categories": categories, "backtest": bt}
+    return {"summaries": summaries, "categories": categories, "pooled": pooled, "backtest": bt}
