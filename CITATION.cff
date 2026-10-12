@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this study, its data or its code, please cite it as below."
+title: "Calibration Atlas: a reproducible calibration study of resolved Polymarket markets"
+type: software
+authors:
+  - alias: Guinerve
+repository-code: "https://github.com/Guinerve/calibration-atlas"
+url: "https://guinerve.github.io/calibration-atlas/"
+license: MIT
+version: 1.1.0
+date-released: 2026-10-13
+keywords:
+  - prediction markets
+  - calibration
+  - forecasting
+  - Polymarket
+  - pre-registration
+abstract: >-
+  A calibration study of 11,881 resolved Polymarket markets from the 1,500 highest-volume
+  closed events (January 2024 to October 2026), with event clustered recalibration slopes,
+  Bayesian partial pooling across categories, a walk forward backtest of one trading strategy,
+  and a pre-registered holdout test of the macro slope on markets that closed after collection.

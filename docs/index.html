@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calibration Atlas Explorer</title>
+<title>Calibration Atlas</title>
 <meta name="description" content="Explore how well 11,881 resolved Polymarket markets were calibrated, by horizon, category and volume.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
 <style>
   :root {
     --surface: #fcfcfb; --card: #ffffff; --text: #0b0b0b; --muted: #52514e; --grid: #e6e5e1;
@@ -26,9 +29,41 @@
     font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   main { max-width: 980px; margin: 0 auto; padding: 32px 16px 48px; }
-  header h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  header p { margin: 0; color: var(--muted); }
-  header a, footer a { color: var(--series-1); }
+  a { color: var(--series-1); }
+  a:focus-visible, button:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+  nav.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  nav.top .name { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 700; font-size: 17px; color: var(--text); text-decoration: none; }
+  nav.top ul { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; list-style: none; }
+  nav.top ul a { color: var(--muted); text-decoration: none; }
+  nav.top ul a:hover { color: var(--text); text-decoration: underline; }
+  header.hero { position: relative; padding: 40px 0 28px; }
+  header.hero svg.diagonal { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  header.hero h1 { position: relative; font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 700;
+    font-size: clamp(32px, 6vw, 54px); line-height: 1.04; letter-spacing: -0.025em; margin: 0 0 16px; max-width: 13em; }
+  header.hero p { position: relative; margin: 0; color: var(--muted); max-width: 40em; font-size: 16px; }
+  header.hero p strong { color: var(--text); font-weight: 600; }
+  .holdout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 24px; align-items: end;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 16px 0; margin-bottom: 8px; }
+  .holdout h2 { font-size: 15px; margin: 0; }
+  .holdout p { margin: 0; color: var(--muted); font-size: 14px; max-width: 46em; }
+  .holdout .count { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-size: 30px; font-weight: 700;
+    font-variant-numeric: tabular-nums; text-align: right; line-height: 1; }
+  .holdout .count small { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .ticks { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(65, 1fr); gap: 2px; height: 14px; margin: 6px 0 2px; }
+  .ticks i { background: var(--grid); border-radius: 1px; }
+  .ticks i.on { background: var(--series-1); }
+  .reproduce { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 20px; }
+  .reproduce h2 { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .reproduce p { color: var(--muted); margin: 0 0 12px; max-width: 46em; }
+  .code { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+  .code pre { margin: 0; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .code button { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 13px; padding: 4px 10px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; }
+  .links { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+  .links a { display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; text-decoration: none; color: var(--text); background: var(--card); }
+  .links a:hover { border-color: var(--series-1); }
+  .links a span { display: block; color: var(--muted); font-size: 13px; }
   .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 24px 0 16px; align-items: end; }
   .control { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
   .control > span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -72,7 +107,9 @@
   .reading { margin-top: 16px; color: var(--muted); font-size: 14px; }
   footer { margin-top: 32px; font-size: 13px; color: var(--muted); }
   @media (max-width: 560px) {
-    header h1 { font-size: 23px; }
+    .holdout { grid-template-columns: 1fr; }
+    .holdout .count { text-align: left; }
+    .ticks { gap: 1px; }
     .controls { display: grid; grid-template-columns: 1fr 1fr; }
     .controls > .control:first-child, .controls > .control:last-child { grid-column: 1 / -1; }
     #horizon { display: grid; grid-template-columns: 1fr 1fr; }
@@ -89,11 +126,36 @@
 </head>
 <body>
 <main>
-  <header>
-    <h1>Calibration Atlas</h1>
-    <p>Do prediction market prices mean what they say? Explore <span id="total">11,881</span> resolved Polymarket markets.
-      <a href="https://github.com/Guinerve/calibration-atlas">Code and method</a></p>
+  <nav class="top" aria-label="Site">
+    <a class="name" href="./">Calibration Atlas</a>
+    <ul>
+      <li><a href="https://github.com/Guinerve/calibration-atlas/blob/main/reports/REPORT.md">Report</a></li>
+      <li><a href="https://github.com/Guinerve/calibration-atlas/blob/main/reports/HOLDOUT.md">Holdout test</a></li>
+      <li><a href="https://github.com/Guinerve/calibration-atlas/blob/main/PROTOCOL.md">Protocol</a></li>
+      <li><a href="#reproduce">Reproduce</a></li>
+      <li><a href="https://github.com/Guinerve/calibration-atlas">Code</a></li>
+    </ul>
+  </nav>
+
+  <header class="hero">
+    <svg class="diagonal" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="0" y1="100" x2="100" y2="0" stroke="var(--grid)" stroke-width="1.5" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <h1>Do prediction market prices mean what they say?</h1>
+    <p>Explore <strong><span id="total">11,881</span> resolved Polymarket markets</strong> from the 1,500 highest-volume
+      closed events, January 2024 to October 2026. Everything below is recomputed in your browser. It describes this
+      sample, not prediction markets in general.</p>
   </header>
+
+  <section class="holdout" aria-labelledby="holdout-title">
+    <div>
+      <h2 id="holdout-title">Testing the macro finding on new markets</h2>
+      <p id="holdout-text">In this sample, macro prices looked too timid (b = 1.66). That was found after looking, so it is
+        being tested on markets that closed after the collection, under <a href="https://github.com/Guinerve/calibration-atlas/blob/main/PROTOCOL.md">rules frozen in advance</a>.</p>
+    </div>
+    <div class="count" id="holdout-count" aria-live="polite">–</div>
+    <div class="ticks" id="holdout-ticks" aria-hidden="true"></div>
+  </section>
 
   <div class="controls" role="group" aria-label="Filters">
     <div class="control"><span id="horizon-label">Price taken</span>
@@ -150,6 +212,23 @@
     their scheduled end, usually because the event already happened; prices measured from the actual close then
     peek at the answer, which is why the default view measures 7 days before the scheduled end.
   </p>
+
+  <section class="reproduce" id="reproduce" aria-labelledby="reproduce-title">
+    <h2 id="reproduce-title">Reproduce every number</h2>
+    <p>The study table is committed, so the report, charts and this page's data rebuild in seconds without the API.</p>
+    <div class="code">
+      <pre id="reproduce-cmd">git clone https://github.com/Guinerve/calibration-atlas
+cd calibration-atlas
+uv sync
+uv run calatlas report</pre>
+      <button type="button" id="copy">Copy</button>
+    </div>
+    <div class="links">
+      <a href="https://github.com/Guinerve/calibration-atlas/blob/main/reports/REPORT.md">Full report<span>Tables, intervals and charts</span></a>
+      <a href="https://github.com/Guinerve/calibration-atlas/blob/main/reports/HOLDOUT.md">Holdout test<span>The pre-registered macro check</span></a>
+      <a href="https://github.com/Guinerve/calibration-atlas/blob/main/PROTOCOL.md">Protocol<span>Sampling rules, frozen and fingerprinted</span></a>
+    </div>
+  </section>
 
   <footer><span id="note"></span>. Research on read only public data; not trading advice.</footer>
 </main>
@@ -278,6 +357,36 @@ function segmented(id, key) {
   });
   for (const b of group.querySelectorAll("button")) b.setAttribute("aria-pressed", b.dataset.value === state[key]);
 }
+
+async function showHoldout() {
+  const count = document.getElementById("holdout-count");
+  const ticks = document.getElementById("holdout-ticks");
+  let h;
+  try { h = await (await fetch("data/holdout.json")).json(); } catch { count.textContent = ""; return; }
+  const done = Math.min(h.progress.primary.events, h.needed);
+  ticks.style.gridTemplateColumns = `repeat(${h.needed}, 1fr)`;
+  ticks.innerHTML = Array.from({ length: h.needed }, (_, i) => `<i class="${i < done ? "on" : ""}"></i>`).join("");
+  const asOf = new Date(h.as_of).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  if (h.status === "blinded") {
+    count.innerHTML = `${done}<small> of ${h.needed} events</small>`;
+    document.getElementById("holdout-text").insertAdjacentHTML("beforeend",
+      ` The result stays hidden until ${h.needed} large macro events have closed (as of ${asOf}).`);
+  } else {
+    const r = h.results.primary;
+    count.innerHTML = r.b == null ? r.verdict : `b = ${fmt(r.b, 2)}<small> ${r.verdict}</small>`;
+    document.getElementById("holdout-text").insertAdjacentHTML("beforeend",
+      ` Read ${h.status === "read" ? "" : "early, underpowered, "}on ${fmt(r.events)} events: ${r.verdict}.`);
+  }
+}
+
+document.getElementById("copy").addEventListener("click", async (e) => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById("reproduce-cmd").textContent);
+    e.target.textContent = "Copied";
+  } catch { e.target.textContent = "Select and copy"; }
+  setTimeout(() => { e.target.textContent = "Copy"; }, 2000);
+});
+showHoldout();
 
 data = await (await fetch("data/markets.json")).json();
 document.getElementById("total").textContent = fmt(data.outcome.length);

@@ -1,0 +1,16 @@
+{
+  "status": "blinded",
+  "as_of": "2026-10-12T23:02:39+00:00",
+  "progress": {
+    "primary": {
+      "events": 0,
+      "markets": 0
+    },
+    "secondary": {
+      "events": 0,
+      "markets": 0
+    }
+  },
+  "needed": 65,
+  "deadline": "2027-12-31"
+}

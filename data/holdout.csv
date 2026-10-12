@@ -1,0 +1,2 @@
+market_id,event_id,question,category,tags,yes_token,outcome,volume,closed_ts,end_ts,resolved_early,neg_risk,event_volume,event_closed_ts,price_sched_7d
+5455710,1158893,Will Google (GOOGL) close above $360 on October 12?,macro,GOOGL|Equities|Daily|Finance|Hide From New|Stocks,36744630742677589680385579040774992398529708383400899173475967201679177089054,0,16704.44753,1791836696,1791835200,False,False,20026.431826,1791836816,

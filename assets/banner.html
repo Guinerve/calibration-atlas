@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!-- Source of banner-light.png and banner-dark.png: open in Chrome at 1280x420, 2x scale, in each colour scheme.
+     The points are the 7-days-before-scheduled-end reliability bins from data/study.csv. -->
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
+<style>
+:root{--surface:#fcfcfb;--text:#15171a;--muted:#52514e;--grid:#e6e5e1;--s1:#2a78d6;--s2:#eb6834}
+@media (prefers-color-scheme:dark){:root{--surface:#1a1a19;--text:#f0efec;--muted:#c3c2b7;--grid:#3a3a37;--s1:#3987e5;--s2:#d95926}}
+html,body{margin:0;background:var(--surface);color:var(--text)}
+.b{width:1280px;height:420px;display:grid;grid-template-columns:1fr 360px;gap:56px;align-items:center;padding:0 64px;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
+h1{font:700 60px/1.02 "Bricolage Grotesque",sans-serif;letter-spacing:-.025em;margin:0 0 20px}
+p{margin:0;font-size:21px;line-height:1.45;color:var(--muted);max-width:30em}
+p b{color:var(--text);font-weight:600}
+svg text{font-family:system-ui,sans-serif;font-size:12px;fill:var(--muted)}
+</style></head><body><div class="b">
+<div><h1>Do prediction market prices mean what they say?</h1>
+<p><b>6,393 resolved Polymarket markets</b>, priced a week before their scheduled end, against what actually happened. A reproducible study of one sample, with its rules frozen.</p></div>
+<svg id="c" width="360" height="340" viewBox="0 0 360 340"></svg>
+</div>
+<script>
+const pts=[[0.0164,0.018,4608],[0.143,0.1254,606],[0.2439,0.1915,329],[0.347,0.2866,157],[0.4497,0.4639,166],[0.5404,0.5503,149],[0.65,0.64,100],[0.7499,0.7349,83],[0.847,0.7818,55],[0.9663,0.9714,140]];
+const L=40,T=10,S=290,x=p=>L+p*S,y=p=>T+S-p*S,svg=document.getElementById('c');
+let h='';
+for(let i=0;i<=10;i+=5){const v=i/10;h+=`<line x1="${x(0)}" x2="${x(1)}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><line y1="${y(0)}" y2="${y(1)}" x1="${x(v)}" x2="${x(v)}" stroke="var(--grid)"/>`;
+h+=`<text x="${x(v)}" y="${y(0)+20}" text-anchor="middle">${i*10}¢</text><text x="${x(0)-8}" y="${y(v)+4}" text-anchor="end">${i*10}%</text>`}
+h+=`<line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+h+=`<polyline fill="none" stroke="var(--s1)" stroke-width="2.5" stroke-linejoin="round" points="${pts.map(p=>x(p[0])+','+y(p[1])).join(' ')}"/>`;
+for(const p of pts)h+=`<circle cx="${x(p[0])}" cy="${y(p[1])}" r="${3+Math.sqrt(p[2])/9}" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>`;
+h+=`<text transform="translate(${x(0.22)},${y(0.27)}) rotate(-45)" text-anchor="middle">price = frequency</text><text x="${x(1)}" y="${y(0)+20}" text-anchor="end" opacity="0">.</text>`;
+svg.innerHTML=h;
+</script></body></html>

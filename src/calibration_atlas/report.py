@@ -210,17 +210,30 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         chart_category_slopes(categories, pooled.table, out_dir / "figures" / f"category_slopes-{theme}.png", theme)
         chart_backtest(trades, out_dir / "figures" / f"backtest-{theme}.png", theme)
 
+    first_close, last_close = (datetime.fromtimestamp(f(study["closed_ts"]), UTC)
+                               for f in (min, max))
     lines = [
         "# Calibration atlas: results",
         "",
         (f"Generated {datetime.now(UTC):%d %B %Y} from {data_note}. Every number below is "
         "recomputed by `calatlas report`."),
         "",
+        "## Scope",
+        "",
+        (f"These results describe **one sample**: {len(study):,} markets from the highest-volume "
+         f"closed Polymarket events, closing between {first_close:%B %Y} and {last_close:%B %Y}. "
+         "They were analysed after looking at the data, so they are exploratory: they say how "
+         "these markets behaved, not how prediction markets behave in general. The backtest "
+         "tests **one strategy**; its result says nothing about strategies it did not try. The "
+         "macro result is being tested on markets that closed after the collection, under rules "
+         "frozen in advance ([HOLDOUT.md](HOLDOUT.md), [PROTOCOL.md](../PROTOCOL.md))."),
+        "",
         "## Sample",
         "",
         (f"- **{len(study):,} markets** in **{study['event_id'].nunique():,} events**: resolved "
         f"Yes/No Polymarket markets that settled cleanly at 1 or 0, with at least "
-        f"${MIN_VOLUME:,} traded. These rules were fixed before looking at any results."),
+        f"${MIN_VOLUME:,} traded, from the 1,500 highest-volume closed events. The rules are "
+        "frozen in [PROTOCOL.md](../PROTOCOL.md)."),
         (f"- **{study['resolved_early'].mean():.0%} resolved early** (closed over a day before "
         "their scheduled end, usually because the event had already happened). Their late "
         "prices already know the answer, so every result is shown with and without them."),
@@ -262,7 +275,8 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
          "backtest's decision time. Each category is fitted alone, with 95% intervals clustered by "
          "event, and then partially pooled by a Bayesian hierarchical model: the true slopes are "
          "treated as draws around a shared mean, so a noisy estimate is pulled toward the others "
-         "while a precise one keeps its value."),
+         "while a precise one keeps its value. Categories come from event tags; \"macro\" "
+         "covers finance, business, stocks and earnings as well as economic data and the Fed."),
         "",
         _picture("category_slopes", "Recalibration slope by category, alone and partially pooled"),
         "",
@@ -298,6 +312,8 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
     lines += ["", "## Walk forward backtest", ""]
     honest = bt["scheduled"]
     if honest["trades"]:
+        months = trades["scheduled"]["month_start"].value_counts()
+        busiest, busiest_month = int(months.iloc[0]), datetime.fromtimestamp(months.index[0], UTC)
         lines += [
             (f"Each month the recalibration is refitted using only markets that had **already "
             f"resolved**, then used to trade markets 7 days before their **scheduled** end, buying "
@@ -319,7 +335,18 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
                     f"| {TIMING_LABELS[timing]} | {b['trades']:,} | {b['events']:,} | "
                     f"{b['first']} to {b['last']} | **{b['mean_pnl']:+.4f}** "
                     f"({b['low']:+.4f} to {b['high']:+.4f}) | {b['hit_rate']:.1%} | {b['yes_share']:.1%} |")
-        lines += ["", "Intervals resample whole events."]
+        lines += [
+            "",
+            "Intervals resample whole events.",
+            "",
+            (f"**What this shows.** This strategy, at this cost, on these markets, made "
+             f"{honest['mean_pnl'] * 100:+.1f}¢ per contract with a 95% interval of "
+             f"{honest['low'] * 100:+.1f}¢ to {honest['high'] * 100:+.1f}¢: not distinguishable "
+             "from zero. It does not show that no strategy could profit: other signals, timings, "
+             "sizing or execution were not tried, and the cost is an assumption. "
+             f"{busiest:,} of the {honest['trades']:,} trades fall in {busiest_month:%B %Y}, so "
+             "one month carries much of the weight."),
+        ]
     else:
         lines.append("Not enough resolved markets to start the walk forward test.")
     lines += [
@@ -328,7 +355,12 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         "",
         ("- Prices are Polymarket's published price history, not executable bid/ask quotes; the "
         "backtest's flat cost is an assumption, and real fills on thin markets would be worse."),
-        "- The sample is the highest-volume closed events, so it describes liquid markets, not all of them.",
+        ("- The sample is the 1,500 highest-volume closed events, so it describes liquid markets, "
+         "not all of them. Lifetime volume is only known afterwards, so the selection looks back."),
+        ("- Results were found after looking at the data. Only the macro slope is being tested on "
+         "new data ([HOLDOUT.md](HOLDOUT.md)); the rest has not been replicated."),
+        ("- One venue, one strategy, one cost assumption. The backtest leans on few months: "
+         "intervals resample events, not time periods."),
         ("- Markets in one event are correlated; intervals are clustered by event, but categories are "
         "assigned from event tags, which are imperfect."),
         "- Research on read only public data. Nothing here is trading advice.",

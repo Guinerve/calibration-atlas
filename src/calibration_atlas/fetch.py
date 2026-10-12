@@ -15,6 +15,8 @@ from pathlib import Path
 
 import httpx
 
+from .markets import parse_time
+
 GAMMA = "https://gamma-api.polymarket.com"
 CLOB = "https://clob.polymarket.com"
 USER_AGENT = "calibration-atlas (research; read-only)"
@@ -41,9 +43,11 @@ class Fetcher:
         host = httpx.URL(url).host
         return self.cache_dir / host / f"{hashlib.sha256(key.encode()).hexdigest()[:24]}.json"
 
-    def get_json(self, url: str, params: dict):
+    def get_json(self, url: str, params: dict, cache: bool = True):
+        """``cache=False`` always downloads (and still records the response), for listings
+        that change over time."""
         path = self._cache_path(url, params)
-        if path.exists():
+        if cache and path.exists():
             return json.loads(path.read_text())["body"]
         for attempt in range(self.retries + 1):
             try:
@@ -74,6 +78,27 @@ class Fetcher:
                 "closed": "true", "limit": page_size, "offset": offset,
                 "order": "volume", "ascending": "false"})
             yield from page[: max_events - offset]
+            if len(page) < page_size:
+                return
+            offset += page_size
+
+    def closed_since(self, since_ts: int, min_volume: float, page_size: int = 100) -> Iterator[dict]:
+        """Events that closed after ``since_ts`` (unix seconds) with at least ``min_volume``
+        traded, newest first. The listing grows as markets close, so it is never read from
+        the cache. New closes push older events down a page, which can repeat an event but
+        never skip one; callers drop repeats by id."""
+        offset = 0
+        while True:
+            page = self.get_json(f"{GAMMA}/events", {
+                "closed": "true", "limit": page_size, "offset": offset, "order": "closedTime",
+                "ascending": "false", "volume_min": min_volume}, cache=False)
+            for event in page:
+                closed = parse_time(event.get("closedTime"))
+                if closed is None:
+                    continue
+                if closed.timestamp() <= since_ts:
+                    return
+                yield event
             if len(page) < page_size:
                 return
             offset += page_size

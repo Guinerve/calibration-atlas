@@ -2,9 +2,13 @@
 
 Generated 12 October 2026 from Polymarket public data collected 12 October 2026. Every number below is recomputed by `calatlas report`.
 
+## Scope
+
+These results describe **one sample**: 11,881 markets from the highest-volume closed Polymarket events, closing between January 2024 and October 2026. They were analysed after looking at the data, so they are exploratory: they say how these markets behaved, not how prediction markets behave in general. The backtest tests **one strategy**; its result says nothing about strategies it did not try. The macro result is being tested on markets that closed after the collection, under rules frozen in advance ([HOLDOUT.md](HOLDOUT.md), [PROTOCOL.md](../PROTOCOL.md)).
+
 ## Sample
 
-- **11,881 markets** in **1,170 events**: resolved Yes/No Polymarket markets that settled cleanly at 1 or 0, with at least $10,000 traded. These rules were fixed before looking at any results.
+- **11,881 markets** in **1,170 events**: resolved Yes/No Polymarket markets that settled cleanly at 1 or 0, with at least $10,000 traded, from the 1,500 highest-volume closed events. The rules are frozen in [PROTOCOL.md](../PROTOCOL.md).
 - **38% resolved early** (closed over a day before their scheduled end, usually because the event had already happened). Their late prices already know the answer, so every result is shown with and without them.
 - Price coverage: 43% of markets have a price 30 days before close, 79% of markets have a price 7 days before close, 97% of markets have a price 1 day before close. A market is left out of a horizon when it is younger than the horizon or has no price point fresh enough.
 - Yes happened in **16.5%** of markets: multi-outcome events contribute many long shots.
@@ -27,7 +31,7 @@ Generated 12 October 2026 from Polymarket public data collected 12 October 2026.
 
 ## By category
 
-Recalibration slope 7 days before the scheduled end (markets still open then), the backtest's decision time. Each category is fitted alone, with 95% intervals clustered by event, and then partially pooled by a Bayesian hierarchical model: the true slopes are treated as draws around a shared mean, so a noisy estimate is pulled toward the others while a precise one keeps its value.
+Recalibration slope 7 days before the scheduled end (markets still open then), the backtest's decision time. Each category is fitted alone, with 95% intervals clustered by event, and then partially pooled by a Bayesian hierarchical model: the true slopes are treated as draws around a shared mean, so a noisy estimate is pulled toward the others while a precise one keeps its value. Categories come from event tags; "macro" covers finance, business, stocks and earnings as well as economic data and the Fed.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="figures/category_slopes-dark.png"><img src="figures/category_slopes-light.png" alt="Recalibration slope by category, alone and partially pooled" width="100%"></picture>
 
@@ -66,9 +70,13 @@ Each month the recalibration is refitted using only markets that had **already r
 
 Intervals resample whole events.
 
+**What this shows.** This strategy, at this cost, on these markets, made +0.8¢ per contract with a 95% interval of -1.3¢ to +3.0¢: not distinguishable from zero. It does not show that no strategy could profit: other signals, timings, sizing or execution were not tried, and the cost is an assumption. 395 of the 1,117 trades fall in June 2026, so one month carries much of the weight.
+
 ## Limits
 
 - Prices are Polymarket's published price history, not executable bid/ask quotes; the backtest's flat cost is an assumption, and real fills on thin markets would be worse.
-- The sample is the highest-volume closed events, so it describes liquid markets, not all of them.
+- The sample is the 1,500 highest-volume closed events, so it describes liquid markets, not all of them. Lifetime volume is only known afterwards, so the selection looks back.
+- Results were found after looking at the data. Only the macro slope is being tested on new data ([HOLDOUT.md](HOLDOUT.md)); the rest has not been replicated.
+- One venue, one strategy, one cost assumption. The backtest leans on few months: intervals resample events, not time periods.
 - Markets in one event are correlated; intervals are clustered by event, but categories are assigned from event tags, which are imperfect.
 - Research on read only public data. Nothing here is trading advice.

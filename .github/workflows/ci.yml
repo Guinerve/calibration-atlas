@@ -21,3 +21,7 @@ jobs:
       - run: uvx ruff@0.17.0 check src tests
       - name: Tests (no network access needed)
         run: uv run pytest -v
+      - name: The committed report reproduces from the committed data
+        run: |
+          uv run calatlas report
+          git diff --exit-code -I '^Generated ' -- reports/REPORT.md reports/HOLDOUT.md docs/data
