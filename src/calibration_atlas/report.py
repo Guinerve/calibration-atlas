@@ -158,7 +158,7 @@ def _picture(name, alt):
 
 
 def _fmt(x, digits=3):
-    return "–" if x is None or (isinstance(x, float) and math.isnan(x)) else f"{x:.{digits}f}"
+    return "n/a" if x is None or (isinstance(x, float) and math.isnan(x)) else f"{x:.{digits}f}"
 
 
 def _pool(categories: pd.DataFrame):
@@ -220,29 +220,30 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         "",
         "## Scope",
         "",
-        (f"These results describe **one sample**: {len(study):,} markets from the highest-volume "
-         f"closed Polymarket events, closing between {first_close:%B %Y} and {last_close:%B %Y}. "
-         "They were analysed after looking at the data, so they are exploratory: they say how "
-         "these markets behaved, not how prediction markets behave in general. The backtest "
-         "tests **one strategy**; its result says nothing about strategies it did not try. The "
-         "macro result is being tested on markets that closed after the collection, under rules "
-         "frozen in advance ([HOLDOUT.md](HOLDOUT.md), [PROTOCOL.md](../PROTOCOL.md))."),
+        (f"These results describe **one sample**: {len(study):,} markets from the closed "
+         "Polymarket events with the most trading, closing between "
+         f"{first_close:%B %Y} and {last_close:%B %Y}. The analysis came after looking at the "
+         "data, so the results are exploratory. They say how these markets behaved, not how "
+         "prediction markets behave in general. The backtest tests **one strategy**, and its "
+         "result says nothing about strategies it did not try. Markets that closed after the "
+         "collection now test the macro result, under rules frozen in advance "
+         "([HOLDOUT.md](HOLDOUT.md), [PROTOCOL.md](../PROTOCOL.md))."),
         "",
         "## Sample",
         "",
         (f"- **{len(study):,} markets** in **{study['event_id'].nunique():,} events**: resolved "
         f"Yes/No Polymarket markets that settled cleanly at 1 or 0, with at least "
-        f"${MIN_VOLUME:,} traded, from the 1,500 highest-volume closed events. The rules are "
-        "frozen in [PROTOCOL.md](../PROTOCOL.md)."),
+        f"${MIN_VOLUME:,} traded, from the 1,500 closed events with the most trading. "
+        "[PROTOCOL.md](../PROTOCOL.md) freezes the rules."),
         (f"- **{study['resolved_early'].mean():.0%} resolved early** (closed over a day before "
         "their scheduled end, usually because the event had already happened). Their late "
-        "prices already know the answer, so every result is shown with and without them."),
+        "prices already know the answer, so each horizon shows results with and without them."),
         ("- Price coverage: " + ", ".join(
             f"{study[f'price_{h}'].notna().mean():.0%} of markets have a price {name}"
-            for h, name in HORIZON_NAMES.items()) + ". A market is left out of a horizon when it "
-         "is younger than the horizon or has no price point fresh enough."),
-        (f"- Yes happened in **{study['outcome'].mean():.1%}** of markets: multi-outcome events "
-        "contribute many long shots."),
+            for h, name in HORIZON_NAMES.items()) + ". A market drops out of a horizon when it "
+         "is younger than the horizon or has no recent enough price."),
+        (f"- Yes happened in **{study['outcome'].mean():.1%}** of markets, because events with "
+        "many outcomes add many long shots."),
         "",
         "## Calibration by horizon",
         "",
@@ -252,31 +253,31 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         "|---|---|--:|--:|---|--:|--:|--:|---|",
     ]
     for s in summaries:
-        ci = f" ({_fmt(s.get('brier_low'))}–{_fmt(s.get('brier_high'))})" if "brier_low" in s else ""
+        ci = f" ({_fmt(s.get('brier_low'))} to {_fmt(s.get('brier_high'))})" if "brier_low" in s else ""
         lines.append(
             f"| {TABLE_NAMES[s['horizon']]} | {_sample_name(s)} | "
             f"{s['markets']:,} | {s['events']:,} | {_fmt(s['brier'])}{ci} | {_fmt(s['reliability'], 4)} | "
             f"{_fmt(s['resolution'], 4)} | {_fmt(s['a'], 2)} | {_fmt(s['b'], 2)} ± {_fmt(s['se_b'], 2)} |")
     lines += [
         "",
-        ("**Reading the table.** Brier is the mean squared error of the price as a forecast (lower "
-        "is better). Reliability measures miscalibration (lower is better); resolution measures how "
-        "well prices separate what happened from what didn't (higher is better). The recalibration "
-        "fit is logit(P(Yes)) = a + b·logit(price): **b above 1 means prices are too timid at the "
-        "extremes** (favourites win more often, and long shots less often, than their prices say). "
-        "Standard errors and intervals are clustered by event. The last row measures every market "
-        "at a time known in advance (7 days before its scheduled end, if it was still open then); "
-        "\"before close\" rows rely on the actual close, which an early resolution only reveals "
-        "afterwards."),
+        ("**How to read the table.** Brier is the mean squared error of the price as a forecast "
+        "(lower is better). Reliability measures miscalibration (lower is better). Resolution "
+        "measures how well prices separate what happened from what didn't (higher is better). The "
+        "recalibration fit is logit(P(Yes)) = a + b·logit(price). **b above 1 means prices are too "
+        "timid at the extremes**: favourites win more often, and long shots less often, than their "
+        "prices say. Standard errors and intervals are clustered by event. The last row measures "
+        "each market at a time known in advance: 7 days before its scheduled end, if it was still "
+        "open then. The \"before close\" rows use the actual close, and nobody knows an early close "
+        "until it happens."),
         "",
         "## By category",
         "",
         ("Recalibration slope 7 days before the scheduled end (markets still open then), the "
-         "backtest's decision time. Each category is fitted alone, with 95% intervals clustered by "
-         "event, and then partially pooled by a Bayesian hierarchical model: the true slopes are "
-         "treated as draws around a shared mean, so a noisy estimate is pulled toward the others "
-         "while a precise one keeps its value. Categories come from event tags; \"macro\" "
-         "covers finance, business, stocks and earnings as well as economic data and the Fed."),
+         "backtest's decision time. First, each category is fitted alone, with 95% intervals "
+         "clustered by event. Then a Bayesian hierarchical model partially pools them. It treats the "
+         "true slopes as draws around a shared mean. So it pulls a noisy estimate toward the others, "
+         "and a precise one keeps its value. Categories come from event tags. \"Macro\" covers "
+         "finance, business, stocks and earnings as well as economic data and the Fed."),
         "",
         _picture("category_slopes", "Recalibration slope by category, alone and partially pooled"),
         "",
@@ -286,7 +287,7 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
     by_name = pooled.table.set_index("category")
     for row in categories.itertuples(index=False):
         if math.isnan(row.b):
-            alone, pooled_cell = "too few events", "–"
+            alone, pooled_cell = "too few events", "n/a"
         else:
             p = by_name.loc[row.category]
             alone = f"{row.b:.2f} ({row.b_low:.2f} to {row.b_high:.2f})"
@@ -297,12 +298,12 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         "",
         (f"- Shared mean slope: **{mu[0]:.2f}** ({mu[1]:.2f} to {mu[2]:.2f}). Spread between "
          f"categories (tau): median {tau[0]:.2f} ({tau[1]:.2f} to {tau[2]:.2f}). A category not "
-         f"seen here could plausibly have a slope from {new_cat[1]:.2f} to {new_cat[2]:.2f}."),
+         f"seen here could have a slope from {new_cat[1]:.2f} to {new_cat[2]:.2f}."),
         ("- Model: b_hat ~ Normal(b, se), b ~ Normal(mu, tau), mu ~ Normal(1, 1), "
          "tau ~ HalfNormal(0.5), solved exactly on a grid over tau (see `pooling.py`)."),
         "",
-        ("**Prior check.** With only a handful of categories, the prior on tau matters. Pooled "
-         "slopes under a prior four times tighter and four times looser than the default:"),
+        ("**Prior check.** With only five categories, the prior on tau matters. These are the "
+         "pooled slopes under a prior four times tighter and four times looser than the default:"),
         "",
         "| Category | tau prior scale 0.125 (4x tighter) | 0.5 (default) | 2.0 (4x looser) |",
         "|---|--:|--:|--:|",
@@ -315,14 +316,14 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         months = trades["scheduled"]["month_start"].value_counts()
         busiest, busiest_month = int(months.iloc[0]), datetime.fromtimestamp(months.index[0], UTC)
         lines += [
-            (f"Each month the recalibration is refitted using only markets that had **already "
-            f"resolved**, then used to trade markets 7 days before their **scheduled** end, buying "
-            f"whichever side the recalibrated probability favours by more than the cost. The "
-            f"scheduled end is known in advance; the actual close is not, because many markets "
-            f"close early. The second line times the same strategy from the actual close, which "
-            f"quietly peeks at early resolutions; it is shown only to measure how much that "
-            f"flatters the result. Cost assumed: {BACKTEST['cost']:.2f} per contract (half spread "
-            f"plus fees), on a $1 payout contract."),
+            ("Each month, the recalibration is refitted on markets that had **already resolved**. "
+            "Then it trades markets 7 days before their **scheduled** end. It buys whichever side "
+            "the recalibrated probability favours by more than the cost. The scheduled end is known "
+            "in advance. The actual close is not, because many markets close early. The second line "
+            "times the same strategy from the actual close, which quietly sees early resolutions "
+            "coming. It is here only to measure how much that flatters the result. Assumed cost: "
+            f"{BACKTEST['cost'] * 100:.0f}¢ per contract (half spread plus fees), on a contract that "
+            "pays $1."),
             "",
             _picture("backtest", "Cumulative profit of the walk forward strategy, honest and leaky timing"),
             "",
@@ -340,10 +341,10 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
             "Intervals resample whole events.",
             "",
             (f"**What this shows.** This strategy, at this cost, on these markets, made "
-             f"{honest['mean_pnl'] * 100:+.1f}¢ per contract with a 95% interval of "
-             f"{honest['low'] * 100:+.1f}¢ to {honest['high'] * 100:+.1f}¢: not distinguishable "
-             "from zero. It does not show that no strategy could profit: other signals, timings, "
-             "sizing or execution were not tried, and the cost is an assumption. "
+             f"{honest['mean_pnl'] * 100:+.1f}¢ per contract, with a 95% interval of "
+             f"{honest['low'] * 100:+.1f}¢ to {honest['high'] * 100:+.1f}¢. That is not "
+             "distinguishable from zero. It does not show that no strategy could profit. Other "
+             "signals, timings, sizing and execution were not tried, and the cost is an assumption. "
              f"{busiest:,} of the {honest['trades']:,} trades fall in {busiest_month:%B %Y}, so "
              "one month carries much of the weight."),
         ]
@@ -353,17 +354,19 @@ def build_report(study: pd.DataFrame, out_dir: Path, data_note: str, n_boot: int
         "",
         "## Limits",
         "",
-        ("- Prices are Polymarket's published price history, not executable bid/ask quotes; the "
-        "backtest's flat cost is an assumption, and real fills on thin markets would be worse."),
-        ("- The sample is the 1,500 highest-volume closed events, so it describes liquid markets, "
-         "not all of them. Lifetime volume is only known afterwards, so the selection looks back."),
+        ("- Prices come from Polymarket's published price history, not from bid and ask quotes "
+        "you could trade on. The backtest's flat cost is an assumption, and real fills on thin "
+        "markets would cost more."),
+        ("- The sample is the 1,500 closed events with the most trading, so it describes liquid "
+         "markets, not all markets. Lifetime volume is known only afterwards, so the selection "
+         "looks back in time."),
         ("- Results were found after looking at the data. Only the macro slope is being tested on "
          "new data ([HOLDOUT.md](HOLDOUT.md)); the rest has not been replicated."),
         ("- One venue, one strategy, one cost assumption. The backtest leans on few months: "
          "intervals resample events, not time periods."),
-        ("- Markets in one event are correlated; intervals are clustered by event, but categories are "
-        "assigned from event tags, which are imperfect."),
-        "- Research on read only public data. Nothing here is trading advice.",
+        ("- Markets in one event are correlated, so intervals are clustered by event. Categories "
+        "come from event tags, which are imperfect."),
+        "- Research on public data that the code reads only. Nothing here is trading advice.",
         "",
     ]
     (out_dir / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")

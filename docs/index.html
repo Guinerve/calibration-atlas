@@ -147,16 +147,16 @@
       <line x1="0" y1="100" x2="100" y2="0" stroke="var(--grid)" stroke-width="1.5" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>
     </svg>
     <h1>Do prediction market prices mean what they say?</h1>
-    <p>Explore <strong><span id="total">11,881</span> resolved Polymarket markets</strong> from the 1,500 highest-volume
-      closed events, January 2024 to October 2026. Everything below is recomputed in your browser. It describes this
+    <p>Explore <strong><span id="total">11,881</span> resolved Polymarket markets</strong> from the 1,500 closed events
+      with the most trading, January 2024 to October 2026. Your browser recomputes everything below. It describes this
       sample, not prediction markets in general.</p>
   </header>
 
   <section class="holdout" aria-labelledby="holdout-title">
     <div>
       <h2 id="holdout-title">Testing the macro finding on new markets</h2>
-      <p id="holdout-text">In this sample, macro prices looked too timid (b = 1.66). That was found after looking, so it is
-        being tested on markets that closed after the collection, under <a href="https://github.com/Guinerve/calibration-atlas/blob/main/PROTOCOL.md">rules frozen in advance</a>.</p>
+      <p id="holdout-text">In this sample, macro prices looked too timid (b = 1.66, or 1.29 after pooling). I found that after
+        looking at the data, so markets that closed after the collection now test it, under <a href="https://github.com/Guinerve/calibration-atlas/blob/main/PROTOCOL.md">rules frozen in advance</a>.</p>
     </div>
     <div class="count" id="holdout-count" aria-live="polite">…</div>
     <div class="ticks" id="holdout-ticks" aria-hidden="true"></div>
@@ -211,12 +211,12 @@
   </section>
 
   <p class="reading">
-    <strong>Reading it.</strong> Points above the dashed line mean Yes happened more often than the price said.
-    The slope b comes from logit(P(Yes)) = a + b·logit(price): above 1, prices are too timid at the extremes
-    (favourites underpriced, long shots overpriced); below 1, too confident. Its standard error is clustered by
-    event, because markets in one event move together. "Early closes" are markets that closed over a day before
-    their scheduled end, usually because the event already happened; prices measured from the actual close then
-    peek at the answer, which is why the default view measures 7 days before the scheduled end.
+    <strong>How to read it.</strong> A point above the dashed line means Yes happened more often than the price said.
+    The slope b comes from logit(P(Yes)) = a + b·logit(price). Above 1, prices are too timid at the extremes:
+    favourites are underpriced and long shots overpriced. Below 1, prices are too confident. The standard error is
+    clustered by event, because markets in one event move together. An early close is a market that closed more than
+    a day before its scheduled end, usually because the event already happened. A price measured back from that close
+    already knows the answer. So the default view measures 7 days before the scheduled end, a time known in advance.
   </p>
 
   <section class="reproduce" id="reproduce" aria-labelledby="reproduce-title">
@@ -231,12 +231,12 @@ uv run calatlas report</pre>
     </div>
     <div class="links">
       <a href="https://github.com/Guinerve/calibration-atlas/blob/main/reports/REPORT.md">Full report<span>Tables, intervals and charts</span></a>
-      <a href="https://github.com/Guinerve/calibration-atlas/blob/main/reports/HOLDOUT.md">Holdout test<span>The pre-registered macro check</span></a>
+      <a href="https://github.com/Guinerve/calibration-atlas/blob/main/reports/HOLDOUT.md">Holdout test<span>The macro test, fixed in advance</span></a>
       <a href="https://github.com/Guinerve/calibration-atlas/blob/main/PROTOCOL.md">Protocol<span>Sampling rules, frozen and fingerprinted</span></a>
     </div>
   </section>
 
-  <footer><span id="note">Polymarket public data</span>. Research on read only public data; not trading advice.</footer>
+  <footer><span id="note">Polymarket public data</span>. Research on public data that this project reads only. Not trading advice.</footer>
 </main>
 
 <script type="module">
@@ -383,7 +383,7 @@ async function showHoldout() {
   if (h.status === "blinded") {
     count.innerHTML = `${done}<small> of ${h.needed} events</small>`;
     document.getElementById("holdout-text").insertAdjacentHTML("beforeend",
-      ` The result stays hidden until ${h.needed} large macro events have closed (as of ${asOf}).`);
+      ` The result stays hidden until ${h.needed} large macro events have closed. Count as of ${asOf}.`);
   } else {
     const r = h.results.primary;
     count.innerHTML = r.b == null ? r.verdict : `b = ${fmt(r.b, 2)}<small> ${r.verdict}</small>`;

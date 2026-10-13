@@ -14,9 +14,10 @@ keywords:
   - calibration
   - forecasting
   - Polymarket
-  - pre-registration
+  - preregistration
 abstract: >-
-  A calibration study of 11,881 resolved Polymarket markets from the 1,500 highest-volume
-  closed events (January 2024 to October 2026), with event clustered recalibration slopes,
-  Bayesian partial pooling across categories, a walk forward backtest of one trading strategy,
-  and a pre-registered holdout test of the macro slope on markets that closed after collection.
+  A calibration study of 11,881 resolved Polymarket markets from the 1,500 closed events with
+  the most trading (January 2024 to October 2026). It fits recalibration slopes with errors
+  clustered by event, pools the category slopes with a Bayesian model, and backtests one trading
+  strategy. A holdout test, fixed in advance, checks the macro slope on markets that closed after
+  the collection.

@@ -179,23 +179,23 @@ def write_holdout_report(result: dict, path: Path) -> None:
          "it is tested here on markets that **closed after the collection**, under rules frozen "
          f"on {_date(P.FROZEN_ON)} ([PROTOCOL.md](../PROTOCOL.md))."),
         "",
-        "## Pre-registered design",
+        "## Design, fixed in advance",
         "",
         f"- **New data only**: markets that closed after {P.CUTOFF:%d %B %Y %H:%M} UTC.",
         (f"- **Primary population**: events with at least ${P.PRIMARY_MIN_EVENT_VOLUME:,} traded, "
          "the size of the smallest event in the original sample. **Secondary**: every event, "
          f"markets still need ${P.SECONDARY_MIN_EVENT_VOLUME:,} each."),
-        (f"- **Read once**, on the first {P.MIN_EVENTS} primary events to close (the original's "
-         "size); until then this page shows counts, never the slope. If that count is not "
-         f"reached by {P.DEADLINE:%d %B %Y}, the test is read on what there is and labelled "
-         "underpowered."),
+        (f"- **Read once**, on the first {P.MIN_EVENTS} primary events to close (the size of the "
+         "original sample). Until then this page shows counts, never the slope. If that count is "
+         f"not reached by {P.DEADLINE:%d %B %Y}, the test reads what there is and marks the "
+         "result underpowered."),
         (f"- **Verdict**: *supported* if the one sided {1 - P.ALPHA:.0%} lower bound on b is "
-         "above 1; *reversed* if the two sided 95% interval lies below 1; otherwise *not "
+         "above 1. *Reversed* if the two sided 95% interval lies below 1. Otherwise *not "
          "supported*. Errors are clustered by event."),
         (f"- **Power**: about {power(o['b']):.0%} if the true slope is the original {o['b']:.2f}, "
          f"and about {power(o['pooled']):.0%} if it is the pooled {o['pooled']:.2f}. A *not "
-         "supported* verdict mostly rules out an effect as large as first measured; it is weak "
-         "evidence that macro prices are calibrated."),
+         "supported* verdict mostly rules out an effect as large as the first measurement. It is "
+         "weak evidence that macro prices are calibrated."),
         "",
         "## Progress",
         "",
@@ -209,8 +209,8 @@ def write_holdout_report(result: dict, path: Path) -> None:
     ]
     if result["status"] == "blinded":
         lines += [
-            ("The slope stays hidden until the primary population reaches its size, so that no "
-             "one, including the author, can stop the test early on a convenient result."),
+            ("The slope stays hidden until the primary population reaches its size. So nobody, "
+             "including the author, can stop the test early on a convenient result."),
             "",
         ]
     else:
@@ -224,7 +224,7 @@ def write_holdout_report(result: dict, path: Path) -> None:
         ]
         for name, r in result["results"].items():
             if r.get("b") is None:
-                lines.append(f"| {name} | {r['markets']:,} | {r['events']:,} | – | – | {r['verdict']} |")
+                lines.append(f"| {name} | {r['markets']:,} | {r['events']:,} | n/a | n/a | {r['verdict']} |")
             else:
                 lines.append(
                     f"| {name} | {r['markets']:,} | {r['events']:,} | {r['b']:.2f} "
