@@ -1,0 +1,72 @@
+name: Holdout
+
+# Monthly: download markets closed since the cutoff and update the blinded count
+# (PROTOCOL.md). The test reads itself once 65 primary events have settled, or at the
+# 31 December 2027 deadline; after that this workflow disables itself.
+
+on:
+  schedule:
+    - cron: "17 6 1 * *"  # 06:17 UTC on the 1st of each month
+  workflow_dispatch:
+
+permissions:
+  contents: write  # commit the updated holdout data and pages
+  actions: write   # disable this workflow once the test has been read
+
+concurrency:
+  group: holdout
+  cancel-in-progress: false
+
+jobs:
+  holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stop if the test has already been read
+        id: status
+        run: |
+          status=$(python3 -c 'import json; print(json.load(open("docs/data/holdout.json"))["status"])')
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "Holdout status: $status"
+
+      - uses: astral-sh/setup-uv@v6
+        if: steps.status.outputs.status == 'blinded'
+
+      # Price histories of closed markets never change, so keep them between runs.
+      - uses: actions/cache@v4
+        if: steps.status.outputs.status == 'blinded'
+        with:
+          path: data/raw/clob.polymarket.com
+          key: holdout-prices-${{ github.run_id }}
+          restore-keys: holdout-prices-
+
+      - name: Download new markets and evaluate
+        if: steps.status.outputs.status == 'blinded'
+        run: |
+          uv sync
+          uv run calatlas holdout --workers 4
+
+      - name: Commit the update
+        if: steps.status.outputs.status == 'blinded'
+        run: |
+          git add data/holdout.csv data/holdout.json data/holdout-errors.csv reports/HOLDOUT.md docs/data/holdout.json
+          if git diff --cached --quiet; then
+            echo "Nothing changed"
+            exit 0
+          fi
+          events=$(python3 -c 'import json; d=json.load(open("docs/data/holdout.json")); print(d["status"], d["progress"]["primary"]["events"])')
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Holdout update: $events of 65 primary events"
+          git push
+
+      - name: Disable this workflow once the test has been read
+        run: |
+          status=$(python3 -c 'import json; print(json.load(open("docs/data/holdout.json"))["status"])')
+          if [ "$status" != "blinded" ]; then
+            echo "Holdout $status: disabling the schedule"
+            gh workflow disable holdout.yml
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}

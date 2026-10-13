@@ -5,7 +5,7 @@ A reproducible calibration study of 11,881 resolved Polymarket markets, the two 
 [![CI](https://github.com/Guinerve/calibration-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Guinerve/calibration-atlas/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-2a78d6)
 ![Tests](https://img.shields.io/badge/tests-95%20passing-2a78d6)
-![Holdout](https://img.shields.io/badge/holdout-blinded%2C%200%20of%2065%20events-52514e)
+[![Holdout](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fguinerve.github.io%2Fcalibration-atlas%2Fdata%2Fholdout.json&query=%24.progress.primary.events&label=holdout&suffix=%20of%2065%20events&color=52514e)](reports/HOLDOUT.md)
 ![Data](https://img.shields.io/badge/data-read%20only%20public%20API-52514e)
 
 | [**Read the report**](reports/REPORT.md) | [**Open the explorer**](https://guinerve.github.io/calibration-atlas/) | [**Holdout test**](reports/HOLDOUT.md) | [**Reproduce it**](#reproduce) |
@@ -36,7 +36,7 @@ The macro result was found after looking, in 65 events, and pooling halves its d
 * **Verdict fixed in advance.** *Supported* if the one sided 95% lower bound on b is above 1; *reversed* if the 95% interval lies below 1; otherwise *not supported*. With 65 events the test has about 90% power if the true slope is 1.66 and 36% if it is 1.29, so *not supported* would mainly rule out an effect as large as first measured.
 * **Tamper evident.** Every rule that picks markets, reads prices, fits the slope or reads the holdout is fingerprinted (SHA-256 of the code). CI fails if the fingerprint drifts from the one in `PROTOCOL.md`, so a rule can only change through a dated, logged amendment.
 
-**Status at 12 October 2026 23:02 UTC: blinded, 0 of 65 events.** `uv run calatlas holdout` downloads markets closed since the cutoff and updates the count; in the original sample about five macro events this size closed each month in 2026, so expect the test to read in late 2027.
+**Status:** the badge at the top shows the live count, and [`HOLDOUT.md`](reports/HOLDOUT.md) the details. A [scheduled workflow](.github/workflows/holdout.yml) runs `calatlas holdout` on the 1st of each month and commits the new count; it reads the test once 65 events have settled (or at the deadline), then switches itself off. In the original sample about five macro events this size closed each month in 2026, so expect the test to read in late 2027.
 
 ## Two bugs that made findings
 
