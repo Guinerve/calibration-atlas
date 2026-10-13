@@ -98,6 +98,8 @@
     opacity: 0; transition: opacity 0.1s; white-space: nowrap; font-variant-numeric: tabular-nums;
   }
   .warning { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  .status { margin: 16px 0; padding: 24px 16px; border: 1px dashed var(--line); border-radius: 8px; text-align: center; color: var(--muted); }
+  .status[hidden] { display: none; }
   details { margin-top: 12px; }
   summary { cursor: pointer; color: var(--series-1); font-size: 14px; }
   table { border-collapse: collapse; width: 100%; margin-top: 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -153,7 +155,7 @@
       <p id="holdout-text">In this sample, macro prices looked too timid (b = 1.66). That was found after looking, so it is
         being tested on markets that closed after the collection, under <a href="https://github.com/Guinerve/calibration-atlas/blob/main/PROTOCOL.md">rules frozen in advance</a>.</p>
     </div>
-    <div class="count" id="holdout-count" aria-live="polite">–</div>
+    <div class="count" id="holdout-count" aria-live="polite">…</div>
     <div class="ticks" id="holdout-ticks" aria-hidden="true"></div>
   </section>
 
@@ -182,10 +184,10 @@
   </div>
 
   <div class="tiles">
-    <div class="tile"><div class="label">Markets</div><div class="value" id="t-markets">–</div><div class="sub" id="t-events">–</div></div>
-    <div class="tile"><div class="label">Yes happened</div><div class="value" id="t-yes">–</div><div class="sub">of these markets</div></div>
-    <div class="tile"><div class="label">Brier score</div><div class="value" id="t-brier">–</div><div class="sub">lower is better</div></div>
-    <div class="tile"><div class="label">Recalibration slope b</div><div class="value" id="t-slope">–</div><div class="sub" id="t-slope-sub">1 means calibrated</div></div>
+    <div class="tile"><div class="label">Markets</div><div class="value" id="t-markets">…</div><div class="sub" id="t-events">…</div></div>
+    <div class="tile"><div class="label">Yes happened</div><div class="value" id="t-yes">…</div><div class="sub">of these markets</div></div>
+    <div class="tile"><div class="label">Brier score</div><div class="value" id="t-brier">…</div><div class="sub">lower is better</div></div>
+    <div class="tile"><div class="label">Recalibration slope b</div><div class="value" id="t-slope">…</div><div class="sub" id="t-slope-sub">1 means calibrated</div></div>
   </div>
 
   <section class="card">
@@ -197,6 +199,7 @@
       <span><i class="swatch dashed" style="border-color: var(--muted)"></i>Perfect calibration</span>
     </div>
     <div class="chart" id="chart"><div class="tooltip" id="tooltip" aria-hidden="true"></div></div>
+    <p class="status" id="status" role="status">Loading the market data…</p>
     <p class="warning" id="warning" hidden></p>
     <details>
       <summary>Show as a table</summary>
@@ -230,7 +233,7 @@ uv run calatlas report</pre>
     </div>
   </section>
 
-  <footer><span id="note"></span>. Research on read only public data; not trading advice.</footer>
+  <footer><span id="note">Polymarket public data</span>. Research on read only public data; not trading advice.</footer>
 </main>
 
 <script type="module">
@@ -319,8 +322,8 @@ function render() {
   const n = price.length, events = new Set(event).size, yes = outcome.reduce((s, o) => s + o, 0);
   document.getElementById("t-markets").textContent = fmt(n);
   document.getElementById("t-events").textContent = `in ${fmt(events)} events`;
-  document.getElementById("t-yes").textContent = n ? pct(yes / n) : "–";
-  document.getElementById("t-brier").textContent = n ? fmt(brier(price, outcome), 3) : "–";
+  document.getElementById("t-yes").textContent = n ? pct(yes / n) : "n/a";
+  document.getElementById("t-brier").textContent = n ? fmt(brier(price, outcome), 3) : "n/a";
 
   let fit = null, why = "too few markets to fit";
   if (n >= 30 && yes > 0 && yes < n && events > 2) {
@@ -330,7 +333,7 @@ function render() {
       why = "no stable fit for this subset (too few markets, or near perfect separation)";
     }
   }
-  document.getElementById("t-slope").textContent = fit ? `${fmt(fit.b, 2)} ± ${fmt(fit.seB, 2)}` : "–";
+  document.getElementById("t-slope").textContent = fit ? `${fmt(fit.b, 2)} ± ${fmt(fit.seB, 2)}` : "n/a";
   document.getElementById("t-slope-sub").textContent = !fit ? why
     : fit.b - 1.96 * fit.seB > 1 ? "prices too timid at the extremes"
     : fit.b + 1.96 * fit.seB < 1 ? "prices too confident at the extremes"
@@ -362,7 +365,14 @@ async function showHoldout() {
   const count = document.getElementById("holdout-count");
   const ticks = document.getElementById("holdout-ticks");
   let h;
-  try { h = await (await fetch("data/holdout.json")).json(); } catch { count.textContent = ""; return; }
+  try {
+    const response = await fetch("data/holdout.json");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    h = await response.json();
+  } catch {
+    count.innerHTML = `<small>Count not available</small>`;
+    return;
+  }
   const done = Math.min(h.progress.primary.events, h.needed);
   ticks.style.gridTemplateColumns = `repeat(${h.needed}, 1fr)`;
   ticks.innerHTML = Array.from({ length: h.needed }, (_, i) => `<i class="${i < done ? "on" : ""}"></i>`).join("");
@@ -375,7 +385,7 @@ async function showHoldout() {
     const r = h.results.primary;
     count.innerHTML = r.b == null ? r.verdict : `b = ${fmt(r.b, 2)}<small> ${r.verdict}</small>`;
     document.getElementById("holdout-text").insertAdjacentHTML("beforeend",
-      ` Read ${h.status === "read" ? "" : "early, underpowered, "}on ${fmt(r.events)} events: ${r.verdict}.`);
+      ` Read ${h.status === "read" ? "" : "at the deadline (underpowered) "}on ${fmt(r.events)} events: ${r.verdict}.`);
   }
 }
 
@@ -388,7 +398,18 @@ document.getElementById("copy").addEventListener("click", async (e) => {
 });
 showHoldout();
 
-data = await (await fetch("data/markets.json")).json();
+const status = document.getElementById("status");
+try {
+  const response = await fetch("data/markets.json");
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  data = await response.json();
+} catch (error) {
+  status.textContent = `The market data did not load (${error.message}). Reload the page, or rebuild it with uv run calatlas report.`;
+  for (const id of ["t-markets", "t-yes", "t-brier", "t-slope"]) document.getElementById(id).textContent = "n/a";
+  document.getElementById("t-events").textContent = "no data";
+  throw error;
+}
+status.hidden = true;
 document.getElementById("total").textContent = fmt(data.outcome.length);
 document.getElementById("note").textContent = data.note;
 const categorySelect = document.getElementById("category");
